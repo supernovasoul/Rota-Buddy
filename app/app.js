@@ -1,4 +1,5 @@
 import { loadState, saveState, newId, todayIso, APP_VERSION } from './state.js';
+import { buildDemoState } from './demoSeed.js';
 import { newStaffDraft, validateStaffDraft, isArchived, archiveStaff, reinstateStaff, deleteStaffGdpr } from './staff.js';
 import {
   validateOpeningHoursDefaults, newOverrideDraft, validateOverrideDraft, upsertOverride, removeOverride,
@@ -25,6 +26,14 @@ import { pickCurrentPeriod, periodCoverage, buildRecentWeeks } from './weekSumma
 import { formatDate, formatDateRange } from './dateFormat.js';
 
 let state = loadState();
+// A completely fresh install (nothing saved yet, e.g. the first visit to a
+// deployed demo link) starts from a populated example instead of an empty
+// shell - see demoSeed.js. Once seeded it's saved like any other edit, so
+// it won't be silently regenerated/overwritten on a later visit.
+if (state.staff.length === 0 && state.rotaPeriods.length === 0) {
+  state = buildDemoState();
+  saveState(state);
+}
 let editingStaffId = null; // null while adding; set while editing an existing person
 
 // This increment keeps exactly one always-active shift-type set rather
