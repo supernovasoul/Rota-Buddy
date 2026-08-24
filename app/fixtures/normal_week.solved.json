@@ -1,0 +1,347 @@
+{
+  "fixtureLabel": "normal_week",
+  "weekStart": "2026-08-03",
+  "weekEnd": "2026-08-09",
+  "status": "OPTIMAL",
+  "objectiveValue": 6085.0,
+  "receptionAssignments": [
+    {
+      "date": "2026-08-03",
+      "slot": "early",
+      "startTime": "08:00",
+      "endTime": "14:00",
+      "staffId": 6,
+      "staffName": "Isla Thompson",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-03",
+      "slot": "late",
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "staffId": 4,
+      "staffName": "Grace Liu",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-04",
+      "slot": "early",
+      "startTime": "08:00",
+      "endTime": "14:00",
+      "staffId": 5,
+      "staffName": "Harry Osei",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-04",
+      "slot": "late",
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "staffId": 2,
+      "staffName": "Ben Carter",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-05",
+      "slot": "early",
+      "startTime": "08:00",
+      "endTime": "14:00",
+      "staffId": 6,
+      "staffName": "Isla Thompson",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-05",
+      "slot": "late",
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "staffId": 1,
+      "staffName": "Amira Khan",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-06",
+      "slot": "early",
+      "startTime": "08:00",
+      "endTime": "14:00",
+      "staffId": 6,
+      "staffName": "Isla Thompson",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-06",
+      "slot": "late",
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "staffId": 1,
+      "staffName": "Amira Khan",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-07",
+      "slot": "early",
+      "startTime": "08:00",
+      "endTime": "14:00",
+      "staffId": 5,
+      "staffName": "Harry Osei",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-07",
+      "slot": "late",
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "staffId": 1,
+      "staffName": "Amira Khan",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-08",
+      "slot": "early",
+      "startTime": "08:00",
+      "endTime": "14:00",
+      "staffId": 2,
+      "staffName": "Ben Carter",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-08",
+      "slot": "late",
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "staffId": 5,
+      "staffName": "Harry Osei",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-09",
+      "slot": "early",
+      "startTime": "08:00",
+      "endTime": "14:00",
+      "staffId": 2,
+      "staffName": "Ben Carter",
+      "unfilled": false
+    },
+    {
+      "date": "2026-08-09",
+      "slot": "late",
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "staffId": 1,
+      "staffName": "Amira Khan",
+      "unfilled": false
+    }
+  ],
+  "therapistAssignments": [
+    {
+      "date": "2026-08-03",
+      "staffId": 7,
+      "staffName": "Dev Patel",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-03",
+      "staffId": 10,
+      "staffName": "Jamal Reid",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-03",
+      "staffId": 14,
+      "staffName": "Noah Williams",
+      "hours": 4
+    },
+    {
+      "date": "2026-08-04",
+      "staffId": 7,
+      "staffName": "Dev Patel",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-04",
+      "staffId": 8,
+      "staffName": "Elena Rossi",
+      "hours": 1
+    },
+    {
+      "date": "2026-08-04",
+      "staffId": 14,
+      "staffName": "Noah Williams",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-04",
+      "staffId": 15,
+      "staffName": "Priya Sharma",
+      "hours": 3
+    },
+    {
+      "date": "2026-08-05",
+      "staffId": 12,
+      "staffName": "Liam O'Connor",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-05",
+      "staffId": 15,
+      "staffName": "Priya Sharma",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-05",
+      "staffId": 16,
+      "staffName": "Ravi Kumar",
+      "hours": 4
+    },
+    {
+      "date": "2026-08-06",
+      "staffId": 7,
+      "staffName": "Dev Patel",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-06",
+      "staffId": 9,
+      "staffName": "Femi Adeyemi",
+      "hours": 5
+    },
+    {
+      "date": "2026-08-06",
+      "staffId": 10,
+      "staffName": "Jamal Reid",
+      "hours": 2
+    },
+    {
+      "date": "2026-08-06",
+      "staffId": 14,
+      "staffName": "Noah Williams",
+      "hours": 5
+    },
+    {
+      "date": "2026-08-07",
+      "staffId": 7,
+      "staffName": "Dev Patel",
+      "hours": 1
+    },
+    {
+      "date": "2026-08-07",
+      "staffId": 9,
+      "staffName": "Femi Adeyemi",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-07",
+      "staffId": 10,
+      "staffName": "Jamal Reid",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-07",
+      "staffId": 12,
+      "staffName": "Liam O'Connor",
+      "hours": 2
+    },
+    {
+      "date": "2026-08-07",
+      "staffId": 14,
+      "staffName": "Noah Williams",
+      "hours": 1
+    },
+    {
+      "date": "2026-08-08",
+      "staffId": 9,
+      "staffName": "Femi Adeyemi",
+      "hours": 3
+    },
+    {
+      "date": "2026-08-08",
+      "staffId": 10,
+      "staffName": "Jamal Reid",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-08",
+      "staffId": 11,
+      "staffName": "Kavya Nair",
+      "hours": 3
+    },
+    {
+      "date": "2026-08-08",
+      "staffId": 12,
+      "staffName": "Liam O'Connor",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-08",
+      "staffId": 14,
+      "staffName": "Noah Williams",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-09",
+      "staffId": 9,
+      "staffName": "Femi Adeyemi",
+      "hours": 1
+    },
+    {
+      "date": "2026-08-09",
+      "staffId": 11,
+      "staffName": "Kavya Nair",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-09",
+      "staffId": 12,
+      "staffName": "Liam O'Connor",
+      "hours": 8
+    },
+    {
+      "date": "2026-08-09",
+      "staffId": 13,
+      "staffName": "Maya Singh",
+      "hours": 1
+    },
+    {
+      "date": "2026-08-09",
+      "staffId": 15,
+      "staffName": "Priya Sharma",
+      "hours": 4
+    },
+    {
+      "date": "2026-08-09",
+      "staffId": 16,
+      "staffName": "Ravi Kumar",
+      "hours": 8
+    }
+  ],
+  "demand": [
+    {
+      "date": "2026-08-03",
+      "hours": 20
+    },
+    {
+      "date": "2026-08-04",
+      "hours": 20
+    },
+    {
+      "date": "2026-08-05",
+      "hours": 20
+    },
+    {
+      "date": "2026-08-06",
+      "hours": 20
+    },
+    {
+      "date": "2026-08-07",
+      "hours": 20
+    },
+    {
+      "date": "2026-08-08",
+      "hours": 30
+    },
+    {
+      "date": "2026-08-09",
+      "hours": 30
+    }
+  ]
+}

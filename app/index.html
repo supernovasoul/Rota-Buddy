@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rota Buddy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2.5' y='4.5' width='19' height='17' rx='3' fill='%23b8863b'/%3E%3Cpath d='M2.5 9.5H21.5' stroke='%23201705' stroke-width='1.8'/%3E%3Cpath d='M7 2.5V6.5' stroke='%23201705' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M17 2.5V6.5' stroke='%23201705' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M6.8 14.5L10 17.2L17.2 12.2' stroke='%23201705' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --canvas: #eae3d3;
+    --panel: #f7f3e9;
+    --panel-raised: #fffdf7;
+    --bg-soft: #efe4cf;
+    --ink: #2b241d;
+    --muted: #7a6f5d;
+    --line: #ddd2b8;
+    --sidebar-bg: #1c2119;
+    --sidebar-bg-raised: #242b22;
+    --sidebar-ink: #efe9da;
+    --sidebar-muted: #9fae9b;
+    --accent: #b8863b;
+    --accent-strong: #9c6f2c;
+    --accent-ink: #201705;
+    --accent-soft: #f1e3c8;
+    --moss: #4b6b4f;
+    --moss-soft: #dee6da;
+    --clay: #9c4530;
+    --clay-soft: #f0ded2;
+    --clay-line: #d9b9a4;
+    --danger: #9c4530;
+    --danger-bg: #f0ded2;
+    --danger-line: #d9b9a4;
+    --warn-bg: #f1e3c8;
+    --warn-ink: #8a5a1c;
+    --radius: 7px;
+    --radius-lg: 10px;
+    --shadow: 0 1px 2px rgba(42, 36, 32, 0.06), 0 12px 28px -18px rgba(42, 36, 32, 0.35);
+    --shadow-md: 0 16px 40px -20px rgba(42, 36, 32, 0.45);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --canvas: #171310;
+      --panel: #211c16;
+      --panel-raised: #29231b;
+      --bg-soft: #241f18;
+      --ink: #ede6d6;
+      --muted: #a2937b;
+      --line: #3a3226;
+      --sidebar-bg: #100d0a;
+      --sidebar-bg-raised: #191510;
+      --sidebar-ink: #ede6d6;
+      --sidebar-muted: #8b9587;
+      --accent: #d6a24e;
+      --accent-strong: #e8b869;
+      --accent-ink: #1c1304;
+      --accent-soft: #332309;
+      --moss: #7fa37f;
+      --moss-soft: #22301f;
+      --clay: #d98a63;
+      --clay-soft: #3a2419;
+      --clay-line: #5c3a2f;
+      --danger: #d98a63;
+      --danger-bg: #3a2419;
+      --danger-line: #5c3a2f;
+      --warn-bg: #332309;
+      --warn-ink: #e8b869;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -18px rgba(0, 0, 0, 0.6);
+      --shadow-md: 0 16px 40px -20px rgba(0, 0, 0, 0.7);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--canvas);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- shell + sidebar ---- */
+  .shell { display: flex; min-height: 100vh; align-items: stretch; }
+  .sidebar {
+    width: 228px; flex: none;
+    background: var(--sidebar-bg); color: var(--sidebar-ink);
+    padding: 1.5rem 1.1rem;
+    display: flex; flex-direction: column; gap: 2.25rem;
+  }
+  .brand { display: flex; align-items: center; gap: 0.6rem; padding: 0 0.35rem; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 8px; flex: none; background: linear-gradient(150deg, var(--accent), var(--accent-strong)); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
+  .brand-mark svg { width: 17px; height: 17px; display: block; }
+  .brand-word { font-family: var(--serif); font-size: 1.2rem; letter-spacing: 0.01em; }
+  .brand-sub { font-size: 0.68rem; color: var(--sidebar-muted); }
+  nav.primary-nav { display: flex; flex-direction: column; gap: 0.15rem; }
+  .nav-btn {
+    display: flex; align-items: center; gap: 0.65rem; position: relative;
+    font: inherit; font-size: 0.92rem; color: var(--sidebar-muted);
+    background: none; border: none; text-align: left; cursor: pointer;
+    padding: 0.55rem 0.6rem; border-radius: var(--radius);
+  }
+  .nav-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.5; flex: none; }
+  .nav-btn:hover { background: var(--sidebar-bg-raised); color: var(--sidebar-ink); }
+  .nav-btn.active { background: var(--sidebar-bg-raised); color: var(--sidebar-ink); }
+  .nav-btn.active .dot { background: var(--accent); opacity: 1; }
+  .nav-btn.active::before { content: ""; position: absolute; left: -1.1rem; top: 0.35rem; bottom: 0.35rem; width: 3px; background: var(--accent); border-radius: 2px; }
+  .sidebar-foot { margin-top: auto; font-size: 0.78rem; color: var(--sidebar-muted); padding: 0 0.6rem; line-height: 1.5; }
+  .sidebar-foot strong { color: var(--sidebar-ink); font-weight: 600; }
+
+  main { flex: 1; max-width: 980px; padding: 2.25rem 3rem; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .page-head { margin-bottom: 1.5rem; }
+  .eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin-bottom: 0.35rem; }
+  h1.page-title { font-family: var(--serif); font-weight: 500; font-size: 1.85rem; margin: 0; text-wrap: balance; }
+  .page-sub { color: var(--muted); font-size: 0.92rem; margin-top: 0.4rem; max-width: 60ch; }
+
+  .summary-row { display: flex; gap: 0.9rem; margin: 1.5rem 0 2rem; flex-wrap: wrap; }
+  .stat-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 0.9rem 1.15rem; box-shadow: var(--shadow); flex: 1; min-width: 170px; }
+  .stat-card .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .stat-card .num { font-size: 1.4rem; font-weight: 600; line-height: 1.15; margin-top: 0.35rem; }
+  .stat-card .sub { font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; }
+  .stat-card.attention .num { color: var(--clay); }
+  .stat-card.good .num { color: var(--moss); }
+
+  /* ---- panel (retained name/shape for app.js) ---- */
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 1.5rem 1.75rem; box-shadow: var(--shadow); }
+  .panel + .panel { margin-top: 1.25rem; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem; }
+  .panel-head h2 { display: flex; align-items: center; gap: 0.55rem; font-family: var(--serif); font-weight: 500; font-size: 1.05rem; margin: 0; }
+  .panel-head h2::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+  .controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+  .controls label { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+
+  button {
+    font: inherit; cursor: pointer; border-radius: var(--radius);
+    border: 1px solid var(--line); background: var(--bg-soft); padding: 0.5rem 0.9rem; color: var(--ink);
+    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease, transform 80ms ease;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent-strong); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); box-shadow: var(--shadow); font-weight: 600; }
+  button.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--accent-ink); }
+  button.danger { color: var(--danger); border-color: var(--danger-line); background: var(--danger-bg); }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button.link { border: none; background: none; padding: 0.15rem 0.35rem; color: var(--accent-strong); text-decoration: none; font-weight: 500; }
+  button.link:hover { text-decoration: underline; }
+  button.link.danger { color: var(--danger); }
+  button.link.danger:hover { color: var(--danger); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  table:not(.gen-table) tbody tr:hover td { background: var(--panel-raised); }
+  tr.archived { color: var(--muted); }
+  tr.archived td { font-style: italic; }
+  .empty-state { color: var(--muted); padding: 1.5rem 0; text-align: center; font-size: 0.9rem; }
+  .tag { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--bg-soft); color: var(--muted); }
+  .tag.weighted { background: var(--warn-bg); color: var(--warn-ink); }
+  .unfilled-cell { color: var(--clay); font-weight: 600; }
+  .flag-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-strong); margin-left: 0.4rem; vertical-align: middle; cursor: help; }
+
+  /* ---- form overlay ---- */
+  .overlay { position: fixed; inset: 0; background: rgba(28, 22, 15, 0.42); backdrop-filter: blur(2px); display: flex; align-items: flex-start; justify-content: center; padding: 3rem 1rem; overflow-y: auto; }
+  .overlay[hidden] { display: none; }
+  .form-panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: 1.5rem; width: 100%; max-width: 480px; }
+  .form-panel h2 { margin-top: 0; font-family: var(--serif); font-weight: 500; font-size: 1.1rem; }
+  .field { margin-bottom: 0.9rem; }
+  .field label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 0.3rem; }
+  .field input[type=text], .field input[type=date], .field input[type=number], .field select, .field textarea, .demand-input {
+    width: 100%; font: inherit; padding: 0.45rem 0.55rem; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel-raised); color: var(--ink); transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus, .demand-input:focus, .message-textarea:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .demand-input { width: 64px; }
+  .field .hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.25rem; }
+  .field.management-only .hint { color: var(--warn-ink); }
+  .field-row { display: flex; gap: 0.75rem; }
+  .field-row .field { flex: 1; }
+  .errors { background: var(--danger-bg); border: 1px solid var(--danger-line); color: var(--danger); border-radius: var(--radius); padding: 0.65rem 0.85rem; font-size: 0.85rem; margin-bottom: 1rem; }
+  .errors ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+  .form-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.25rem; }
+
+  .pattern-days { display: flex; gap: 0.5rem; }
+  .pattern-days label { display: flex; flex-direction: column; align-items: center; font-size: 0.72rem; color: var(--muted); gap: 0.2rem; }
+
+  .avail-grid-table { border-collapse: collapse; user-select: none; }
+  .avail-grid-table th, .avail-grid-table td { border: 1px solid var(--line); padding: 0; }
+  .avail-grid-table th.staff-name-head, .avail-grid-table td.staff-name-cell { text-align: left; padding: 0.35rem 0.6rem; font-size: 0.85rem; white-space: nowrap; position: sticky; left: 0; background: var(--panel); }
+  .avail-grid-table th.day-head { font-size: 0.68rem; font-weight: 500; color: var(--muted); width: 28px; text-align: center; padding: 0.2rem 0; }
+  .avail-grid-table th.day-head.weekend { background: var(--bg-soft); }
+  .avail-cell { width: 28px; height: 28px; cursor: pointer; text-align: center; font-size: 0.65rem; color: var(--muted); transition: background-color 120ms ease; }
+  .avail-cell.available { background: var(--moss-soft); color: var(--moss); }
+  .avail-cell.unavailable { background: var(--clay-soft); color: var(--clay); }
+  .avail-cell.overridden { box-shadow: inset 0 0 0 2px var(--accent); }
+  .message-textarea { width: 100%; font: inherit; padding: 0.5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-raised); color: var(--ink); }
+
+  .summary-line { background: var(--bg-soft); border-radius: var(--radius); padding: 0.65rem 0.85rem; font-size: 0.9rem; margin-bottom: 1rem; }
+  .summary-line.incomplete { background: var(--danger-bg); color: var(--danger); }
+  .gen-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .gen-table th, .gen-table td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .gen-table th { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  .gen-table tr.closed td { color: var(--muted); font-style: italic; }
+  .gen-table tr.unfilled td.unfilled-cell { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
+  .gen-week-head td { background: var(--bg-soft); font-weight: 600; padding-top: 0.75rem; }
+
+  @media (max-width: 760px) {
+    .shell { flex-direction: column; }
+    .sidebar { width: auto; flex-direction: row; align-items: center; padding: 0.85rem 1rem; gap: 1rem; }
+    nav.primary-nav { flex-direction: row; }
+    .sidebar-foot { display: none; }
+    main { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2.5" y="4.5" width="19" height="17" rx="3" stroke="var(--accent-ink)" stroke-width="1.8"/>
+            <path d="M2.5 9.5H21.5" stroke="var(--accent-ink)" stroke-width="1.8"/>
+            <path d="M7 2.5V6.5" stroke="var(--accent-ink)" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M17 2.5V6.5" stroke="var(--accent-ink)" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M6.8 14.5L10 17.2L17.2 12.2" stroke="var(--accent-ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-word">Rota Buddy</div>
+          <div class="brand-sub" id="version-label"></div>
+        </div>
+      </div>
+
+      <nav class="primary-nav">
+        <button class="nav-btn active" data-view="week" type="button"><span class="dot"></span>This week</button>
+        <button class="nav-btn" data-view="staff" type="button"><span class="dot"></span>Staff</button>
+        <button class="nav-btn" data-view="settings" type="button"><span class="dot"></span>Settings</button>
+      </nav>
+
+      <div class="sidebar-foot">Runs entirely in this browser.<br>Nothing leaves your device.</div>
+    </aside>
+
+    <main>
+      <!-- THIS WEEK -->
+      <div class="view active" id="view-week">
+        <div class="page-head">
+          <div class="eyebrow" id="week-date-range">This week</div>
+          <h1 class="page-title">This week</h1>
+          <p class="page-sub">Reception coverage for the current period, plus anything that's changed since it was generated.</p>
+        </div>
+
+        <div class="summary-row">
+          <div class="stat-card" id="stat-coverage-card">
+            <div class="label">Coverage</div>
+            <div class="num" id="stat-coverage-num">—</div>
+            <div class="sub" id="stat-coverage-sub"></div>
+          </div>
+          <div class="stat-card" id="stat-second-look-card">
+            <div class="label">Needs a second look</div>
+            <div class="num" id="stat-second-look-num">—</div>
+            <div class="sub" id="stat-second-look-sub"></div>
+          </div>
+          <div class="stat-card" id="stat-rest-nudges-card">
+            <div class="label">Rest-week nudges</div>
+            <div class="num" id="stat-rest-nudges-num">—</div>
+            <div class="sub" id="stat-rest-nudges-sub"></div>
+          </div>
+        </div>
+
+        <section class="panel" id="period-detail-panel" hidden>
+          <div class="panel-head">
+            <h2 id="period-detail-title">Week</h2>
+            <button type="button" class="link" id="period-detail-back-btn">&larr; Back to all periods</button>
+          </div>
+          <div id="period-detail-wrap"></div>
+        </section>
+
+        <section class="panel" id="generate-panel">
+          <div class="panel-head">
+            <h2>Generate rota</h2>
+            <div class="controls">
+              <label for="generate-month">Month</label>
+              <input type="month" id="generate-month">
+              <button class="primary" type="button" id="generate-btn">Generate</button>
+              <button type="button" id="save-draft-btn" disabled>Save as draft</button>
+            </div>
+          </div>
+          <div id="generate-summary"></div>
+          <div id="generate-results" style="overflow-x: auto;"></div>
+        </section>
+
+        <section class="panel" id="rota-periods-panel">
+          <div class="panel-head">
+            <h2>Rota periods</h2>
+          </div>
+          <p class="hint" style="margin: -0.5rem 0 1rem;">Closing a week banks the actual hours worked into everyone's fairness ledger for good - do this once a week is genuinely finished, not before.</p>
+          <div id="rota-periods-wrap"></div>
+        </section>
+
+        <section class="panel" id="audit-log-panel">
+          <div class="panel-head">
+            <h2>Recent changes</h2>
+          </div>
+          <div id="audit-log-wrap"></div>
+        </section>
+      </div>
+
+      <!-- STAFF -->
+      <div class="view" id="view-staff">
+        <div class="page-head">
+          <div class="eyebrow">Roster</div>
+          <h1 class="page-title">Staff</h1>
+          <p class="page-sub">Who's on the team, their usual weekly pattern, and this month's availability.</p>
+        </div>
+
+        <section class="panel" id="staff-panel">
+          <div class="panel-head">
+            <h2>Staff</h2>
+            <button class="primary" id="add-staff-btn" type="button">Add staff</button>
+          </div>
+          <div class="controls">
+            <label><input type="checkbox" id="show-archived-toggle"> Show archived staff</label>
+            <label><input type="checkbox" id="show-sensitive-toggle"> Show wage &amp; weighting columns</label>
+          </div>
+          <div id="staff-table-wrap"></div>
+        </section>
+
+        <section class="panel" id="pattern-panel">
+          <div class="panel-head">
+            <h2>Weekly availability pattern</h2>
+          </div>
+          <p class="hint" style="margin: -0.5rem 0 1rem;">The usual working days for each person - the starting template the month grid below is pre-filled from. Someone with no pattern set yet is available every day by default.</p>
+          <div id="pattern-table-wrap"></div>
+        </section>
+
+        <section class="panel" id="availability-grid-panel">
+          <div class="panel-head">
+            <h2>Availability &amp; demand</h2>
+            <div class="controls">
+              <label for="grid-month">Month</label>
+              <input type="month" id="grid-month">
+              <button type="button" id="copy-last-month-btn">Copy last month</button>
+            </div>
+          </div>
+          <p class="hint" style="margin: -0.5rem 0 1rem;">Click, or click-and-drag across several days, to paint availability for this month. A solid marker means this date has been explicitly set; otherwise it's just following the weekly pattern.</p>
+          <div id="availability-grid-wrap" style="overflow-x: auto;"></div>
+
+          <h3 style="font-size: 0.95rem; margin: 1.25rem 0 0.75rem;">Therapist demand (forecast hours)</h3>
+          <div class="controls" style="margin-bottom: 0.75rem;">
+            <label for="demand-weekday-default">Weekday</label>
+            <input type="number" id="demand-weekday-default" min="0" step="0.5" style="width: 70px;">
+            <label for="demand-weekend-default">Weekend</label>
+            <input type="number" id="demand-weekend-default" min="0" step="0.5" style="width: 70px;">
+            <button type="button" id="apply-demand-defaults-btn">Fill this month</button>
+          </div>
+          <div id="demand-table-wrap" style="overflow-x: auto;"></div>
+        </section>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="view" id="view-settings">
+        <div class="page-head">
+          <div class="eyebrow">Configuration</div>
+          <h1 class="page-title">Settings</h1>
+          <p class="page-sub">Opening hours, shift types, and the rules generation follows. Changed rarely.</p>
+        </div>
+
+        <section class="panel" id="opening-hours-panel">
+          <div class="panel-head">
+            <h2>Opening hours</h2>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="oh-weekday-start">Weekday opens</label>
+              <input type="time" id="oh-weekday-start">
+            </div>
+            <div class="field">
+              <label for="oh-weekday-end">Weekday closes</label>
+              <input type="time" id="oh-weekday-end">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="oh-weekend-start">Weekend opens</label>
+              <input type="time" id="oh-weekend-start">
+            </div>
+            <div class="field">
+              <label for="oh-weekend-end">Weekend closes</label>
+              <input type="time" id="oh-weekend-end">
+            </div>
+          </div>
+          <div class="errors" id="oh-defaults-errors" hidden></div>
+          <div class="form-actions" style="justify-content: flex-start;">
+            <button class="primary" id="oh-defaults-save-btn" type="button">Save default hours</button>
+          </div>
+
+          <h3 style="font-size: 0.95rem; margin: 1.25rem 0 0.75rem;">Per-date overrides</h3>
+          <div class="controls" style="margin-bottom: 0.75rem;">
+            <button type="button" id="add-override-btn">Add override</button>
+          </div>
+          <div id="overrides-table-wrap"></div>
+        </section>
+
+        <section class="panel" id="shift-types-panel">
+          <div class="panel-head">
+            <h2>Shift types</h2>
+          </div>
+
+          <h3 style="font-size: 0.95rem; margin: 0 0 0.75rem;">Reception</h3>
+          <div class="controls" style="margin-bottom: 0.75rem;">
+            <button type="button" data-role="receptionist" class="add-shift-type-btn">Add reception shift type</button>
+          </div>
+          <div id="reception-shift-types-wrap"></div>
+
+          <h3 style="font-size: 0.95rem; margin: 1.25rem 0 0.75rem;">Therapist</h3>
+          <div class="controls" style="margin-bottom: 0.75rem;">
+            <button type="button" data-role="therapist" class="add-shift-type-btn">Add therapist shift type</button>
+          </div>
+          <div id="therapist-shift-types-wrap"></div>
+        </section>
+
+        <section class="panel" id="scheduling-rules-panel">
+          <div class="panel-head">
+            <h2>Scheduling rules</h2>
+          </div>
+          <div class="field" style="max-width: 260px;">
+            <label for="cap-hours">Default weekly hour cap (Mon&ndash;Sun)</label>
+            <input type="number" id="cap-hours" min="1" step="0.5">
+            <div class="hint">Individual staff can be approved for a higher personal cap in their staff record.</div>
+          </div>
+          <div class="errors" id="cap-errors" hidden></div>
+          <div class="form-actions" style="justify-content: flex-start;">
+            <button class="primary" id="cap-save-btn" type="button">Save</button>
+          </div>
+        </section>
+
+        <section class="panel" id="display-settings-panel">
+          <div class="panel-head">
+            <h2>Display</h2>
+          </div>
+          <div class="field" style="max-width: 300px;">
+            <label for="date-format-select">Date format</label>
+            <select id="date-format-select">
+              <option value="day-month">Day Month Year &mdash; 10 Aug 2026</option>
+              <option value="month-day">Month Day, Year (US) &mdash; Aug 10, 2026</option>
+            </select>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="overlay" id="form-overlay" hidden>
+    <form class="form-panel" id="staff-form">
+      <h2 id="form-title">Add staff</h2>
+      <div class="errors" id="form-errors" hidden></div>
+
+      <div class="field">
+        <label for="f-name">Name</label>
+        <input type="text" id="f-name" autocomplete="off">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-role">Role</label>
+          <select id="f-role">
+            <option value="receptionist">Receptionist</option>
+            <option value="therapist">Therapist</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-employment-type">Employment type</label>
+          <select id="f-employment-type">
+            <option value="flex">Flex</option>
+            <option value="fixed_pattern">Fixed pattern</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-start-date">Start date</label>
+          <input type="date" id="f-start-date">
+        </div>
+        <div class="field">
+          <label for="f-end-date">End date (leave blank unless archiving)</label>
+          <input type="date" id="f-end-date">
+        </div>
+      </div>
+
+      <div class="field" id="f-fraction-field">
+        <label for="f-fraction">Contracted fraction (e.g. 1.0 full-time, 0.5 half-time)</label>
+        <input type="number" id="f-fraction" step="0.05" min="0.05" max="1">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="f-weight">Priority weight (neutral = 1.0)</label>
+          <input type="number" id="f-weight" step="0.1" min="0.1" value="1.0">
+        </div>
+      </div>
+      <div class="field" id="f-weight-reason-field">
+        <label for="f-weight-reason">Reason for the weighting (required whenever it's not 1.0)</label>
+        <textarea id="f-weight-reason" rows="2"></textarea>
+      </div>
+
+      <div class="field">
+        <label><input type="checkbox" id="f-cap-override-enabled"> Approve a higher personal weekly hour cap</label>
+        <div class="hint">Still a real, enforced ceiling for this person - just a different one from the default. Solver and swap warnings both respect it.</div>
+      </div>
+      <div class="field-row" id="f-cap-override-fields">
+        <div class="field">
+          <label for="f-cap-override-hours">Approved cap (hours per week)</label>
+          <input type="number" id="f-cap-override-hours" step="0.5" min="0.5">
+        </div>
+        <div class="field">
+          <label for="f-cap-override-note">Reason (required)</label>
+          <input type="text" id="f-cap-override-note">
+        </div>
+      </div>
+
+      <div class="field management-only">
+        <label for="f-wage">Hourly wage rate (optional)</label>
+        <input type="number" id="f-wage" step="0.01" min="0">
+        <div class="hint">Management-only. Never shown to staff or in any shared/exported view.</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="form-cancel-btn">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="overlay" id="message-overlay" hidden>
+    <div class="form-panel">
+      <h2 id="message-title">Availability request</h2>
+      <p class="hint" style="margin-top: -0.5rem;">Send this to them individually (email, text, whatever you'd normally use) - not a shared document. They reply to you privately, in their own words.</p>
+      <textarea id="message-text" class="message-textarea" rows="8" readonly></textarea>
+      <div class="form-actions">
+        <button type="button" id="message-close-btn">Close</button>
+        <button type="button" class="primary" id="message-copy-btn">Copy to clipboard</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="override-overlay" hidden>
+    <form class="form-panel" id="override-form">
+      <h2 id="override-form-title">Add override</h2>
+      <div class="errors" id="override-form-errors" hidden></div>
+
+      <div class="field">
+        <label for="ov-date">Date</label>
+        <input type="date" id="ov-date">
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="ov-closed"> Fully closed this date</label>
+      </div>
+      <div class="field-row" id="ov-hours-fields">
+        <div class="field">
+          <label for="ov-start">Opens</label>
+          <input type="time" id="ov-start">
+        </div>
+        <div class="field">
+          <label for="ov-end">Closes</label>
+          <input type="time" id="ov-end">
+        </div>
+      </div>
+      <div class="field">
+        <label for="ov-note">Note</label>
+        <input type="text" id="ov-note" placeholder="e.g. Christmas Eve short day">
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="override-cancel-btn">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="overlay" id="shift-type-overlay" hidden>
+    <form class="form-panel" id="shift-type-form">
+      <h2 id="shift-type-form-title">Add shift type</h2>
+      <div class="errors" id="shift-type-form-errors" hidden></div>
+
+      <div class="field">
+        <label for="st-name">Name</label>
+        <input type="text" id="st-name" placeholder="e.g. Whole day">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="st-start">Starts</label>
+          <input type="time" id="st-start">
+        </div>
+        <div class="field">
+          <label for="st-end">Ends</label>
+          <input type="time" id="st-end">
+        </div>
+      </div>
+      <div class="field">
+        <label for="st-break">Unpaid break (minutes)</label>
+        <input type="number" id="st-break" min="0" step="5">
+      </div>
+
+      <div class="form-actions">
+        <button type="button" id="shift-type-cancel-btn">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="overlay" id="swap-overlay" hidden>
+    <form class="form-panel" id="swap-form">
+      <h2>Swap staff</h2>
+      <div class="errors" id="swap-form-errors" hidden></div>
+
+      <div class="field">
+        <label for="swap-staff-select">New staff member</label>
+        <select id="swap-staff-select"></select>
+      </div>
+      <div class="hint" id="swap-warnings"></div>
+
+      <div class="form-actions">
+        <button type="button" id="swap-cancel-btn">Cancel</button>
+        <button type="submit" class="primary">Swap</button>
+      </div>
+    </form>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

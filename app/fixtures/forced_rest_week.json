@@ -1,0 +1,384 @@
+{
+  "fixtureLabel": "forced_rest_week",
+  "notes": "Matches the real, already-solved output in rota_view.html (Jamal Reid and Liam O'Connor resting) - lets us sanity-check the JS engine's forced-off logic against a known-good real result. NOTE: existingLedgerBalances here only reflects the 26 weeks of closed synthetic history, NOT the two solved-but-not-closed weeks that came before this one (2026-07-06 and 2026-07-13) - because nothing has ever banked their ledger events. This is a live demonstration of the ledger-close gap the v2 rebuild fixes.",
+  "weekStart": "2026-07-20",
+  "weekEnd": "2026-07-26",
+  "staff": [
+    {
+      "id": 1,
+      "name": "Amira Khan",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2024-12-01",
+      "endDate": null
+    },
+    {
+      "id": 2,
+      "name": "Ben Carter",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2024-05-15",
+      "endDate": null
+    },
+    {
+      "id": 3,
+      "name": "Chloe Nowak",
+      "role": "receptionist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": null,
+      "startDate": "2025-06-19",
+      "endDate": null
+    },
+    {
+      "id": 4,
+      "name": "Grace Liu",
+      "role": "receptionist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": null,
+      "startDate": "2025-03-11",
+      "endDate": null
+    },
+    {
+      "id": 5,
+      "name": "Harry Osei",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2024-08-23",
+      "endDate": null
+    },
+    {
+      "id": 6,
+      "name": "Isla Thompson",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2026-04-20",
+      "endDate": null
+    },
+    {
+      "id": 7,
+      "name": "Dev Patel",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2024-08-23",
+      "endDate": null
+    },
+    {
+      "id": 8,
+      "name": "Elena Rossi",
+      "role": "therapist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": 0.5,
+      "startDate": "2025-04-30",
+      "endDate": null
+    },
+    {
+      "id": 9,
+      "name": "Femi Adeyemi",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 0.8,
+      "startDate": "2025-07-09",
+      "endDate": null
+    },
+    {
+      "id": 10,
+      "name": "Jamal Reid",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2024-10-12",
+      "endDate": null
+    },
+    {
+      "id": 11,
+      "name": "Kavya Nair",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 0.6,
+      "startDate": "2025-05-30",
+      "endDate": null
+    },
+    {
+      "id": 12,
+      "name": "Liam O'Connor",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2025-01-20",
+      "endDate": null
+    },
+    {
+      "id": 13,
+      "name": "Maya Singh",
+      "role": "therapist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": 0.4,
+      "startDate": "2025-08-08",
+      "endDate": null
+    },
+    {
+      "id": 14,
+      "name": "Noah Williams",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2024-12-01",
+      "endDate": null
+    },
+    {
+      "id": 15,
+      "name": "Priya Sharma",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 0.7,
+      "startDate": "2025-03-31",
+      "endDate": null
+    },
+    {
+      "id": 16,
+      "name": "Ravi Kumar",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2026-05-25",
+      "endDate": null
+    }
+  ],
+  "availabilityPatterns": [
+    {
+      "staffId": 3,
+      "dayOfWeek": 0,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 1,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 2,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 3,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 4,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 5,
+      "available": true
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 6,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 0,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 1,
+      "available": false
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 2,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 3,
+      "available": false
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 4,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 5,
+      "available": false
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 6,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 0,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 1,
+      "available": true
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 2,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 3,
+      "available": true
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 4,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 5,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 6,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 0,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 1,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 2,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 3,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 4,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 5,
+      "available": true
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 6,
+      "available": true
+    }
+  ],
+  "leave": [],
+  "forcedOff": [
+    10,
+    12
+  ],
+  "forcedOffDetail": {
+    "proactive": [
+      10,
+      12
+    ],
+    "reactive": []
+  },
+  "existingLedgerBalances": {
+    "1": {
+      "REC_BANK_HOL": -0.8,
+      "REC_EARLY": -5.63,
+      "REC_LATE": -8.63,
+      "REC_WEEKEND": -5.8
+    },
+    "2": {
+      "REC_BANK_HOL": -0.8,
+      "REC_EARLY": -8.63,
+      "REC_LATE": -5.63,
+      "REC_WEEKEND": -5.8
+    },
+    "3": {
+      "REC_EARLY": 6.6,
+      "REC_LATE": 3.6,
+      "REC_WEEKEND": 10.2
+    },
+    "4": {
+      "REC_BANK_HOL": 0.2,
+      "REC_EARLY": 6.35,
+      "REC_LATE": -1.65
+    },
+    "5": {
+      "REC_BANK_HOL": -0.8,
+      "REC_EARLY": -8.05,
+      "REC_LATE": -5.05,
+      "REC_WEEKEND": -3.8
+    },
+    "6": {
+      "REC_BANK_HOL": 2.2,
+      "REC_EARLY": 9.37,
+      "REC_LATE": 17.37,
+      "REC_WEEKEND": 5.2
+    },
+    "7": {
+      "THER_HOURS": -4.29
+    },
+    "8": {
+      "THER_HOURS": 2.29
+    },
+    "9": {
+      "THER_HOURS": -0.23
+    },
+    "10": {
+      "THER_HOURS": -4.49
+    },
+    "11": {
+      "THER_HOURS": 3.03
+    },
+    "12": {
+      "THER_HOURS": -4.89
+    },
+    "13": {
+      "THER_HOURS": 2.68
+    },
+    "14": {
+      "THER_HOURS": -4.99
+    },
+    "15": {
+      "THER_HOURS": 0.55
+    },
+    "16": {
+      "THER_HOURS": 10.02
+    }
+  },
+  "staffDimensionSettings": [
+    {
+      "staffId": 3,
+      "dimensionCode": "REC_WEEKEND",
+      "mode": "exempt",
+      "note": "Weekend-only by preference - agreed at hire"
+    }
+  ],
+  "demandRule": {
+    "weekdayHours": 20,
+    "weekendHours": 30
+  }
+}

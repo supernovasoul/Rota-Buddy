@@ -1,0 +1,421 @@
+{
+  "fixtureLabel": "infeasible_day",
+  "notes": "CONSTRUCTED, not pulled from real history - there's no naturally occurring infeasible day in the test data. Built from normal_week by removing every receptionist's availability on Tuesday 2026-08-04, so no valid coverage exists that day. Tests that both engines report the gap visibly instead of silently leaving it blank.",
+  "weekStart": "2026-08-03",
+  "weekEnd": "2026-08-09",
+  "staff": [
+    {
+      "id": 1,
+      "name": "Amira Khan",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2024-12-01",
+      "endDate": null
+    },
+    {
+      "id": 2,
+      "name": "Ben Carter",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2024-05-15",
+      "endDate": null
+    },
+    {
+      "id": 3,
+      "name": "Chloe Nowak",
+      "role": "receptionist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": null,
+      "startDate": "2025-06-19",
+      "endDate": null
+    },
+    {
+      "id": 4,
+      "name": "Grace Liu",
+      "role": "receptionist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": null,
+      "startDate": "2025-03-11",
+      "endDate": null
+    },
+    {
+      "id": 5,
+      "name": "Harry Osei",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2024-08-23",
+      "endDate": null
+    },
+    {
+      "id": 6,
+      "name": "Isla Thompson",
+      "role": "receptionist",
+      "employmentType": "flex",
+      "proportionalFraction": null,
+      "startDate": "2026-04-20",
+      "endDate": null
+    },
+    {
+      "id": 7,
+      "name": "Dev Patel",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2024-08-23",
+      "endDate": null
+    },
+    {
+      "id": 8,
+      "name": "Elena Rossi",
+      "role": "therapist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": 0.5,
+      "startDate": "2025-04-30",
+      "endDate": null
+    },
+    {
+      "id": 9,
+      "name": "Femi Adeyemi",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 0.8,
+      "startDate": "2025-07-09",
+      "endDate": null
+    },
+    {
+      "id": 10,
+      "name": "Jamal Reid",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2024-10-12",
+      "endDate": null
+    },
+    {
+      "id": 11,
+      "name": "Kavya Nair",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 0.6,
+      "startDate": "2025-05-30",
+      "endDate": null
+    },
+    {
+      "id": 12,
+      "name": "Liam O'Connor",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2025-01-20",
+      "endDate": null
+    },
+    {
+      "id": 13,
+      "name": "Maya Singh",
+      "role": "therapist",
+      "employmentType": "fixed_pattern",
+      "proportionalFraction": 0.4,
+      "startDate": "2025-08-08",
+      "endDate": null
+    },
+    {
+      "id": 14,
+      "name": "Noah Williams",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2024-12-01",
+      "endDate": null
+    },
+    {
+      "id": 15,
+      "name": "Priya Sharma",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 0.7,
+      "startDate": "2025-03-31",
+      "endDate": null
+    },
+    {
+      "id": 16,
+      "name": "Ravi Kumar",
+      "role": "therapist",
+      "employmentType": "flex",
+      "proportionalFraction": 1.0,
+      "startDate": "2026-05-25",
+      "endDate": null
+    }
+  ],
+  "availabilityPatterns": [
+    {
+      "staffId": 3,
+      "dayOfWeek": 0,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 1,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 2,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 3,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 4,
+      "available": false
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 5,
+      "available": true
+    },
+    {
+      "staffId": 3,
+      "dayOfWeek": 6,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 0,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 1,
+      "available": false
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 2,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 3,
+      "available": false
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 4,
+      "available": true
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 5,
+      "available": false
+    },
+    {
+      "staffId": 4,
+      "dayOfWeek": 6,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 0,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 1,
+      "available": true
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 2,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 3,
+      "available": true
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 4,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 5,
+      "available": false
+    },
+    {
+      "staffId": 8,
+      "dayOfWeek": 6,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 0,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 1,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 2,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 3,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 4,
+      "available": false
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 5,
+      "available": true
+    },
+    {
+      "staffId": 13,
+      "dayOfWeek": 6,
+      "available": true
+    }
+  ],
+  "leave": [
+    {
+      "staffId": 1,
+      "dateFrom": "2026-08-04",
+      "dateTo": "2026-08-04",
+      "type": "unavailable",
+      "note": "Injected by infeasible_day fixture construction"
+    },
+    {
+      "staffId": 2,
+      "dateFrom": "2026-08-04",
+      "dateTo": "2026-08-04",
+      "type": "unavailable",
+      "note": "Injected by infeasible_day fixture construction"
+    },
+    {
+      "staffId": 3,
+      "dateFrom": "2026-08-04",
+      "dateTo": "2026-08-04",
+      "type": "unavailable",
+      "note": "Injected by infeasible_day fixture construction"
+    },
+    {
+      "staffId": 4,
+      "dateFrom": "2026-08-04",
+      "dateTo": "2026-08-04",
+      "type": "unavailable",
+      "note": "Injected by infeasible_day fixture construction"
+    },
+    {
+      "staffId": 5,
+      "dateFrom": "2026-08-04",
+      "dateTo": "2026-08-04",
+      "type": "unavailable",
+      "note": "Injected by infeasible_day fixture construction"
+    },
+    {
+      "staffId": 6,
+      "dateFrom": "2026-08-04",
+      "dateTo": "2026-08-04",
+      "type": "unavailable",
+      "note": "Injected by infeasible_day fixture construction"
+    }
+  ],
+  "forcedOff": [],
+  "forcedOffDetail": {
+    "proactive": [],
+    "reactive": []
+  },
+  "existingLedgerBalances": {
+    "1": {
+      "REC_BANK_HOL": -0.8,
+      "REC_EARLY": -2.5,
+      "REC_LATE": -5.5,
+      "REC_WEEKEND": -4.2
+    },
+    "2": {
+      "REC_BANK_HOL": -0.8,
+      "REC_EARLY": -5.5,
+      "REC_LATE": -2.5,
+      "REC_WEEKEND": -4.2
+    },
+    "3": {
+      "REC_EARLY": 7.4,
+      "REC_LATE": 4.4,
+      "REC_WEEKEND": 11.8
+    },
+    "4": {
+      "REC_BANK_HOL": 0.2,
+      "REC_EARLY": 7.6,
+      "REC_LATE": -0.4
+    },
+    "5": {
+      "REC_BANK_HOL": -0.8,
+      "REC_EARLY": -5.5,
+      "REC_LATE": -2.5,
+      "REC_WEEKEND": -2.2
+    },
+    "6": {
+      "REC_BANK_HOL": 2.2,
+      "REC_EARLY": -1.5,
+      "REC_LATE": 6.5,
+      "REC_WEEKEND": -1.2
+    },
+    "7": {
+      "THER_HOURS": -3.85
+    },
+    "8": {
+      "THER_HOURS": 1.71
+    },
+    "9": {
+      "THER_HOURS": -0.16
+    },
+    "10": {
+      "THER_HOURS": -3.85
+    },
+    "11": {
+      "THER_HOURS": 1.63
+    },
+    "12": {
+      "THER_HOURS": -3.95
+    },
+    "13": {
+      "THER_HOURS": 1.88
+    },
+    "14": {
+      "THER_HOURS": -4.05
+    },
+    "15": {
+      "THER_HOURS": 0.39
+    },
+    "16": {
+      "THER_HOURS": 10.02
+    }
+  },
+  "staffDimensionSettings": [
+    {
+      "staffId": 3,
+      "dimensionCode": "REC_WEEKEND",
+      "mode": "exempt",
+      "note": "Weekend-only by preference - agreed at hire"
+    }
+  ],
+  "demandRule": {
+    "weekdayHours": 20,
+    "weekendHours": 30
+  }
+}
