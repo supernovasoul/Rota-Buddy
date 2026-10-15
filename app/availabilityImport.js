@@ -21,42 +21,65 @@ export const SLOTS = ['early', 'later', 'full'];
 export const MAX_PASTE_CHARS = 20000;
 
 // JSON schema for structured output - also the shape the fallback prompt
-// asks a chat to reply with, so both paths share one validator.
-export const PARSED_AVAILABILITY_SCHEMA = {
-  type: 'object',
-  properties: {
-    people: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          staffName: { type: 'string' },
-          unmentionedDays: { type: 'string', enum: ['unavailable', 'available', 'pattern'] },
-          days: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                date: { type: 'string' },
-                status: { type: 'string', enum: ['available', 'unavailable'] },
-                slots: { type: 'array', items: { type: 'string', enum: SLOTS } },
-                note: { type: 'string' },
+// asks a chat to reply with, so both paths share one validator. The
+// specialShifts enum is the names of this spa's "only if offered" shift
+// types, so the model can only ever name one that really exists.
+export function parsedAvailabilitySchema(specialShiftNames = []) {
+  return {
+    type: 'object',
+    properties: {
+      people: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            staffName: { type: 'string' },
+            unmentionedDays: { type: 'string', enum: ['unavailable', 'available', 'pattern'] },
+            days: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  date: { type: 'string' },
+                  status: { type: 'string', enum: ['available', 'unavailable'] },
+                  slots: { type: 'array', items: { type: 'string', enum: SLOTS } },
+                  specialShifts: specialShiftNames.length
+                    ? { type: 'array', items: { type: 'string', enum: specialShiftNames } }
+                    : { type: 'array', items: { type: 'string' }, maxItems: 0 },
+                  note: { type: 'string' },
+                },
+                required: ['date', 'status', 'slots', 'specialShifts', 'note'],
+                additionalProperties: false,
               },
-              required: ['date', 'status', 'slots', 'note'],
-              additionalProperties: false,
             },
+            notes: { type: 'array', items: { type: 'string' } },
           },
-          notes: { type: 'array', items: { type: 'string' } },
+          required: ['staffName', 'unmentionedDays', 'days', 'notes'],
+          additionalProperties: false,
         },
-        required: ['staffName', 'unmentionedDays', 'days', 'notes'],
-        additionalProperties: false,
       },
+      unrecognisedText: { type: 'array', items: { type: 'string' } },
     },
-    unrecognisedText: { type: 'array', items: { type: 'string' } },
-  },
-  required: ['people', 'unrecognisedText'],
-  additionalProperties: false,
-};
+    required: ['people', 'unrecognisedText'],
+    additionalProperties: false,
+  };
+}
+
+// The reception shift types that are only used when someone names them
+// (see app/data-model.md) - what the prompt calls "special shifts".
+export function specialShiftsFrom(receptionShiftTypes) {
+  return (receptionShiftTypes ?? [])
+    .filter((t) => t.onlyIfOffered)
+    .map((t) => ({ id: t.id, name: t.name, start: t.start, end: t.end, daysOfWeek: t.daysOfWeek ?? null }));
+}
+
+function specialShiftLines(specialShifts) {
+  if (!specialShifts.length) return '(none configured)';
+  return specialShifts.map((t) => {
+    const days = t.daysOfWeek ? t.daysOfWeek.map((d) => DAY_NAMES[d]).join('/') : 'any day';
+    return `- "${t.name}": ${t.start}-${t.end}, ${days}`;
+  }).join('\n');
+}
 
 function calendarLines(year, month) {
   return datesInMonth(year, month).map((d) => `${d} ${DAY_NAMES[isoWeekday(d)]}`).join('\n');
@@ -65,7 +88,7 @@ function calendarLines(year, month) {
 // One prompt for both paths. Staff names and the month calendar are
 // included so the model never has to guess which weekday a date is or
 // invent a person who isn't on the team.
-export function buildParsePrompt({ staff, year, month, text }) {
+export function buildParsePrompt({ staff, year, month, text, specialShifts = [] }) {
   const roster = staff.map((s) => `- ${s.name} (${s.role})`).join('\n');
   return `You are reading staff availability messages for a spa's ${MONTH_NAMES[month - 1]} ${year} rota and converting them to structured data.
 
@@ -80,8 +103,12 @@ ${calendarLines(year, month)}
 <shift_slots>
 - "early": weekday morning half-shift (roughly 10:30-15:30)
 - "later": weekday evening half-shift (roughly 15:30-21:00)
-- "full": a whole-day shift. Weekends (Sat/Sun) only have "full" shifts.
+- "full": a whole-day shift. Weekends (Sat/Sun) normally only have "full" shifts.
 </shift_slots>
+
+<special_shifts>
+${specialShiftLines(specialShifts)}
+</special_shifts>
 
 <messages>
 ${text}
@@ -93,6 +120,7 @@ Instructions:
 - For each date they can work: status "available" and "slots" listing what they offered. "early" -> ["early"]; "late"/"evening" -> ["later"]; "all day"/"full day" -> ["full", "early", "later"]; "any"/"anything"/just the date with no shift given -> []. Empty slots means any shift.
 - For dates they say they can't work (holiday, training, appointments): status "unavailable", slots [].
 - On a Sat/Sun, a person who offers any shift at all is available for "full" (the only weekend shift) - use ["full"] unless they say they can't do a full day there, in which case mark it unavailable and say why in note.
+- Special shifts are only used when a message explicitly asks for one: its times (e.g. "10:30-4:15", "till 4.15", "from 4pm") or a half day on a day that has one (e.g. "Sat morning", "half day Saturday"). Put the matching name(s) in "specialShifts" for that date, only on days that special shift runs. If they offered only a special shift, leave "slots" empty; if they offered a standard shift as well, list it in "slots" too. A half day that doesn't say which half -> list both halves and say so in note. Otherwise "specialShifts" is [].
 - Keep hedges and preferences in "note" (e.g. "maybe all day", "prefers full day"), and still pick the slots they definitely offered.
 - "unmentionedDays": "unavailable" if they listed the days they CAN work (the usual case); "available" if they listed only days they CAN'T work or said blank days are fine; "pattern" if they gave no month-specific information.
 - Put limits the data can't express (e.g. "max 4 shifts", "no more than 20 hours") in that person's "notes".
@@ -106,7 +134,7 @@ export function buildChatFallbackPrompt(args) {
   return `${buildParsePrompt(args)}
 
 Reply with ONLY a JSON object (no commentary, no code fences) matching this JSON schema:
-${JSON.stringify(PARSED_AVAILABILITY_SCHEMA)}`;
+${JSON.stringify(parsedAvailabilitySchema((args.specialShifts ?? []).map((t) => t.name)))}`;
 }
 
 // Accepts a pasted chat reply that may still be wrapped in ```json fences
@@ -130,7 +158,8 @@ function normaliseName(name) {
 // Turns whatever the model returned into rows the app can safely apply,
 // plus human-readable problems for anything it had to drop. Never throws
 // on bad entries - a single odd line shouldn't sink the whole paste.
-export function validateParsedAvailability(parsed, staff, year, month) {
+export function validateParsedAvailability(parsed, staff, year, month, specialShifts = []) {
+  const specialByName = new Map(specialShifts.map((t) => [normaliseName(t.name), t]));
   const problems = [];
   const people = [];
   const monthDates = new Set(datesInMonth(year, month));
@@ -154,19 +183,39 @@ export function validateParsedAvailability(parsed, staff, year, month) {
         continue;
       }
       const status = day.status === 'unavailable' ? 'unavailable' : 'available';
-      let slots = [...new Set((day.slots ?? []).filter((s) => SLOTS.includes(s)))];
-      const weekend = isoWeekday(day.date) >= 5;
-      if (status === 'available' && weekend && slots.length > 0 && !slots.includes('full')) {
-        problems.push(`${member.name}: ${day.date} is a weekend (full-day shifts only) but they only offered ${slots.join('/')} - left as unavailable.`);
-        days.set(day.date, { date: day.date, status: 'unavailable', slots: [], note: day.note ?? '' });
+      const dow = isoWeekday(day.date);
+      const weekend = dow >= 5;
+      let slots = [...new Set((day.slots ?? []).filter((sl) => SLOTS.includes(sl)))];
+      const specialIds = [];
+      for (const name of status === 'available' && member.role === 'receptionist' ? (day.specialShifts ?? []) : []) {
+        const special = specialByName.get(normaliseName(name));
+        if (!special) {
+          problems.push(`${member.name}: "${name}" on ${day.date} isn't a configured shift - ignored.`);
+        } else if (special.daysOfWeek && !special.daysOfWeek.includes(dow)) {
+          problems.push(`${member.name}: "${special.name}" doesn't run on ${DAY_NAMES[dow]} ${day.date} - ignored.`);
+        } else if (!specialIds.includes(special.id)) {
+          specialIds.push(special.id);
+        }
+      }
+      // they asked only for special shift(s), none of which could be used
+      // - don't let that fall through to an empty slots list ("any shift")
+      if (status === 'available' && slots.length === 0 && (day.specialShifts ?? []).length > 0 && specialIds.length === 0 && member.role === 'receptionist') {
+        days.set(day.date, { date: day.date, status: 'unavailable', slots: [], specialShiftIds: [], note: String(day.note ?? '') });
         continue;
       }
-      if (weekend) slots = slots.filter((s) => s === 'full');
+      if (weekend) slots = slots.filter((sl) => sl === 'full');
+      if (status === 'available' && weekend && (day.slots ?? []).length > 0 && slots.length === 0 && specialIds.length === 0) {
+        problems.push(`${member.name}: ${day.date} is a weekend (full-day shifts unless a half day is set up) but they only offered ${day.slots.join('/')} - left as unavailable.`);
+        days.set(day.date, { date: day.date, status: 'unavailable', slots: [], specialShiftIds: [], note: day.note ?? '' });
+        continue;
+      }
       // therapists' availability is day-level only - slots don't apply
       if (member.role !== 'receptionist') slots = [];
-      // all three slots ticked is the same as "any" - store it that way
-      if (slots.length === SLOTS.length) slots = [];
-      days.set(day.date, { date: day.date, status, slots, note: String(day.note ?? '') });
+      // all three slots ticked is the same as "any standard shift" - store
+      // it that way, unless special shifts were offered too (then an empty
+      // slots list would wrongly read as "special shifts only")
+      if (slots.length === SLOTS.length && specialIds.length === 0) slots = [];
+      days.set(day.date, { date: day.date, status, slots, specialShiftIds: specialIds, note: String(day.note ?? '') });
     }
     people.push({
       staffId: member.id,
@@ -211,6 +260,7 @@ export function applyAvailabilityImport(availability, importedPeople, year, mont
       if (day) {
         const row = { id: newId(), staffId: person.staffId, dateFrom: date, dateTo: date, type: day.status, note: day.note };
         if (day.status === 'available' && day.slots.length > 0) row.shiftSlots = day.slots;
+        if (day.status === 'available' && day.specialShiftIds?.length > 0) row.offeredShiftTypeIds = day.specialShiftIds;
         result.push(row);
       } else if (person.unmentionedDays !== 'pattern') {
         result.push({ id: newId(), staffId: person.staffId, dateFrom: date, dateTo: date, type: person.unmentionedDays, note: '' });

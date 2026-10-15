@@ -12,6 +12,9 @@ import { weekStartsForMonth } from './rotaGeneration.js';
 import { saveChainedWeeksAsDraftPeriods } from './rotaPeriods.js';
 import { closePeriod } from './rotaClose.js';
 
+const WEEKDAYS = [0, 1, 2, 3, 4];
+const WEEKEND = [5, 6];
+
 const DEMO_RECEPTIONISTS = [
   { name: 'Alex Morgan', employmentType: 'flex', days: [0, 1, 2, 3, 4] },
   { name: 'Jordan Reyes', employmentType: 'flex', days: [2, 3, 4, 5, 6] },
@@ -97,10 +100,16 @@ export function buildDemoState() {
       // early/later/full vocabulary (see app/availability.js) - keep this
       // set whenever a shift type's name/times change, so the pattern
       // editor and the solver's coverage combos stay in sync.
-      { id: newId(), name: 'Morning', start: '10:30', end: '15:30', breakMinutes: 0, slot: 'early' },
-      { id: newId(), name: 'Late', start: '15:15', end: '21:00', breakMinutes: 30, slot: 'later' },
-      { id: newId(), name: 'Whole day', start: '10:30', end: '21:00', breakMinutes: 60, slot: 'full' },
-      { id: newId(), name: 'Weekend full day', start: '08:30', end: '18:00', breakMinutes: 60, slot: 'full' },
+      // daysOfWeek: 0=Mon..6=Sun; omitted = every day. onlyIfOffered:
+      // used only for someone whose availability names it for that date.
+      { id: newId(), name: 'Morning', start: '10:30', end: '15:30', breakMinutes: 0, slot: 'early', daysOfWeek: WEEKDAYS },
+      { id: newId(), name: 'Late', start: '15:15', end: '21:00', breakMinutes: 30, slot: 'later', daysOfWeek: WEEKDAYS },
+      { id: newId(), name: 'Whole day', start: '10:30', end: '21:00', breakMinutes: 60, slot: 'full', daysOfWeek: WEEKDAYS },
+      { id: newId(), name: 'Weekend full day', start: '08:30', end: '18:00', breakMinutes: 60, slot: 'full', daysOfWeek: WEEKEND },
+      { id: newId(), name: 'Long early', start: '10:30', end: '16:15', breakMinutes: 30, slot: 'early', daysOfWeek: WEEKDAYS, onlyIfOffered: true },
+      { id: newId(), name: 'Short late', start: '16:00', end: '21:00', breakMinutes: 0, slot: 'later', daysOfWeek: WEEKDAYS, onlyIfOffered: true },
+      { id: newId(), name: 'Saturday morning', start: '08:30', end: '13:15', breakMinutes: 0, slot: 'early', daysOfWeek: [5], onlyIfOffered: true },
+      { id: newId(), name: 'Saturday afternoon', start: '13:00', end: '18:00', breakMinutes: 0, slot: 'later', daysOfWeek: [5], onlyIfOffered: true },
     ],
     // Multiple named lengths, not one fixed "Weekday" shift - a single
     // day can genuinely mix lengths (one therapist on a 6h shift, another

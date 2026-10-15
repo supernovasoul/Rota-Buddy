@@ -375,3 +375,62 @@ test('feasibleAssignmentsForCombo: a pasted "early only" date override pairs peo
   assert.equal(byShiftType.early, 1);
   assert.equal(byShiftType.later, 2);
 });
+
+// --- daysOfWeek + onlyIfOffered shift types (Saturday half days, 10:30-16:15 / 16:00-21:00 splits) ---
+
+const LONG_EARLY = { id: 'le', name: 'Long early', start: '10:30', end: '16:15', breakMinutes: 30, slot: 'early', daysOfWeek: [0, 1, 2, 3, 4], onlyIfOffered: true };
+const SHORT_LATE = { id: 'sl', name: 'Short late', start: '16:00', end: '21:00', breakMinutes: 0, slot: 'later', daysOfWeek: [0, 1, 2, 3, 4], onlyIfOffered: true };
+const SAT_AM = { id: 'sa', name: 'Saturday morning', start: '08:30', end: '13:15', breakMinutes: 0, slot: 'early', daysOfWeek: [5], onlyIfOffered: true };
+const SAT_PM = { id: 'sp', name: 'Saturday afternoon', start: '13:00', end: '18:00', breakMinutes: 0, slot: 'later', daysOfWeek: [5], onlyIfOffered: true };
+const SPECIAL_SETS = [{
+  id: 'set2', effectiveFrom: '2026-01-01', effectiveTo: null,
+  receptionShiftTypes: [
+    { ...MORNING, slot: 'early', daysOfWeek: [0, 1, 2, 3, 4] },
+    { ...LATE, slot: 'later', daysOfWeek: [0, 1, 2, 3, 4] },
+    { ...WHOLE_DAY, slot: 'full', daysOfWeek: [0, 1, 2, 3, 4] },
+    { ...WEEKEND_FULL_DAY, slot: 'full', daysOfWeek: [5, 6] },
+    LONG_EARLY, SHORT_LATE, SAT_AM, SAT_PM,
+  ],
+  therapistShiftTypes: [],
+}];
+const comboIds = (day) => day.combos.map((c) => c.map((t) => t.id).sort().join('+')).sort();
+
+test('resolveReceptionDay: daysOfWeek keeps Saturday half days off weekdays and Sunday, and weekday types off Saturday', () => {
+  assert.deepEqual(comboIds(resolveReceptionDay('2026-08-08', OPENING_HOURS, SPECIAL_SETS, true)), ['sa+sp', 'we']); // Sat
+  assert.deepEqual(comboIds(resolveReceptionDay('2026-08-09', OPENING_HOURS, SPECIAL_SETS, true)), ['we']); // Sun
+  // Mon: Morning(-15:30) + Short late(16:00-) leaves a gap, so it's never a combo
+  assert.deepEqual(comboIds(resolveReceptionDay('2026-08-03', OPENING_HOURS, SPECIAL_SETS, false)), ['l+le', 'l+m', 'le+sl', 'w']);
+});
+
+test('eligibility: onlyIfOffered shift types need the person to have named them for that date', () => {
+  const eligibility = buildEligibility({
+    staff: [{ id: 1, startDate: '2020-01-01' }, { id: 2, startDate: '2020-01-01' }],
+    availability: [
+      { id: 'a', staffId: 1, dateFrom: '2026-08-08', dateTo: '2026-08-08', type: 'available', offeredShiftTypeIds: ['sa'] },
+      { id: 'b', staffId: 2, dateFrom: '2026-08-08', dateTo: '2026-08-08', type: 'available' }, // "any" - but not special
+    ],
+  });
+  assert.equal(eligibility.isAvailable(1, '2026-08-08', SAT_AM), true);
+  assert.equal(eligibility.isAvailable(1, '2026-08-08', SAT_PM), false);
+  assert.equal(eligibility.isAvailable(1, '2026-08-08', { ...WEEKEND_FULL_DAY, slot: 'full' }), false, 'offered only the half day');
+  assert.equal(eligibility.isAvailable(2, '2026-08-08', SAT_AM), false, 'never offered it');
+  assert.equal(eligibility.isAvailable(2, '2026-08-08', { ...WEEKEND_FULL_DAY, slot: 'full' }), true);
+  assert.equal(eligibility.isAvailable(2, '2026-08-10', LONG_EARLY), false, 'no override at all - pattern never grants a special shift');
+});
+
+test('feasibleDayOptions: Saturday is split into halves only between the two people who asked for them', () => {
+  const eligibility = buildEligibility({
+    staff: [{ id: 1, startDate: '2020-01-01' }, { id: 2, startDate: '2020-01-01' }, { id: 3, startDate: '2020-01-01' }],
+    availability: [
+      { id: 'a', staffId: 1, dateFrom: '2026-08-08', dateTo: '2026-08-08', type: 'available', offeredShiftTypeIds: ['sa'] },
+      { id: 'b', staffId: 2, dateFrom: '2026-08-08', dateTo: '2026-08-08', type: 'available', offeredShiftTypeIds: ['sp'] },
+      { id: 'c', staffId: 3, dateFrom: '2026-08-08', dateTo: '2026-08-08', type: 'unavailable' },
+    ],
+  });
+  const receptionists = [1, 2, 3].map((id) => ({ id, weeklyHourCapOverride: null }));
+  const day = resolveReceptionDay('2026-08-08', OPENING_HOURS, SPECIAL_SETS, true);
+  const options = feasibleDayOptions(day, receptionists, {}, eligibility, CAP_SETTING);
+  assert.equal(options.length, 1);
+  const byType = Object.fromEntries(options[0].assignment.map((a) => [a.shiftType.id, a.staffId]));
+  assert.deepEqual(byType, { sa: 1, sp: 2 });
+});

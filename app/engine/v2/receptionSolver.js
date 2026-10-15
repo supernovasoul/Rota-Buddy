@@ -27,7 +27,12 @@ export function resolveReceptionDay(dateIso, openingHours, shiftTypeSets, isWeek
   if (!activeSet) {
     throw new Error(`No shiftTypeSet configured for ${dateIso}`);
   }
-  const combos = findCoveringCombinations(activeSet.receptionShiftTypes, opening.start, opening.end);
+  // daysOfWeek (optional, 0=Mon..6=Sun) limits a shift type to certain
+  // days - e.g. Saturday-only half days, or keeping "Weekend full day"
+  // out of weekday combos. Absent means every day.
+  const dow = isoWeekday(dateIso);
+  const typesToday = activeSet.receptionShiftTypes.filter((t) => !t.daysOfWeek || t.daysOfWeek.includes(dow));
+  const combos = findCoveringCombinations(typesToday, opening.start, opening.end);
   return { date: dateIso, closed: false, opening, combos };
 }
 

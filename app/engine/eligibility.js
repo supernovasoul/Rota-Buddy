@@ -60,7 +60,12 @@ export function buildEligibility(fixture) {
     // shiftSlots (optional, 'available' rows only) narrows a one-off
     // date to specific reception slots - e.g. "7 Aug early only" from a
     // pasted availability message. Absent/empty means any slot.
-    overrides.get(row.staffId).push({ from: row.dateFrom, to: row.dateTo, available: row.type === 'available', shiftSlots: row.shiftSlots ?? null });
+    // offeredShiftTypeIds (optional) lists "only if offered" shift types
+    // (see app/data-model.md) this person explicitly offered that date.
+    overrides.get(row.staffId).push({
+      from: row.dateFrom, to: row.dateTo, available: row.type === 'available',
+      shiftSlots: row.shiftSlots ?? null, offeredShiftTypeIds: row.offeredShiftTypeIds ?? null,
+    });
   }
 
   const startDates = new Map(fixture.staff.map((s) => [s.id, s.startDate]));
@@ -90,11 +95,22 @@ export function buildEligibility(fixture) {
     // an explicit override for this date - either direction - always
     // wins over the recurring pattern; the pattern is only consulted
     // when nothing was explicitly painted for this specific date.
-    for (const { from, to, available, shiftSlots } of overrides.get(staffId) ?? []) {
-      if (from <= dateIso && dateIso <= to) {
-        if (available && shiftSlots?.length && shiftType?.slot) return shiftSlots.includes(shiftType.slot);
-        return available;
-      }
+    const override = (overrides.get(staffId) ?? []).find(({ from, to }) => from <= dateIso && dateIso <= to);
+
+    // An "only if offered" shift type (e.g. a 10:30-16:15 early, or a
+    // Saturday half day) is never inferred from a pattern or a plain
+    // "available" - the person must have named it for this exact date.
+    if (shiftType?.onlyIfOffered) {
+      return !!(override?.available && override.offeredShiftTypeIds?.includes(shiftType.id));
+    }
+
+    if (override) {
+      if (!override.available || !shiftType) return override.available;
+      const offeredSpecial = override.offeredShiftTypeIds?.length > 0;
+      if (override.shiftSlots?.length) return shiftType.slot ? override.shiftSlots.includes(shiftType.slot) : true;
+      // offered only special shifts that day - no standard ones
+      if (offeredSpecial && shiftType.slot) return false;
+      return true;
     }
     const dow = isoWeekday(dateIso);
 

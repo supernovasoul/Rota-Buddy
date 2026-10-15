@@ -106,6 +106,19 @@ a stated single-shift preference.
 { id, staffId, dateFrom, dateTo, type: "holiday"|"sick"|"unavailable"|"available", note,
   shiftSlots?: ["early"|"later"|"full", ...] }   // optional, "available" rows only
 ```
+`offeredShiftTypeIds` (optional, "available" rows only) lists "only if offered"
+reception shift types (see below) the person explicitly asked for that date. If a
+row has `offeredShiftTypeIds` but no `shiftSlots`, they offered ONLY those special
+shifts that day, not any standard one.
+
+**Reception shift type fields added 2026-10-15:** `daysOfWeek` (optional array,
+0=Mon..6=Sun; absent = every day) limits which days a type can be used in coverage
+combos — e.g. Saturday-only half days, and keeps "Weekend full day" out of weekday
+combos. `onlyIfOffered` (boolean) marks non-standard shifts (e.g. 10:30–16:15 /
+16:00–21:00 splits, Saturday half days): eligibility only allows them for someone
+whose `availability[]` row for that date lists the type's id in
+`offeredShiftTypeIds` — never from the weekly pattern or a plain "available".
+
 `shiftSlots` (added 2026-10-15 with Paste availability, `app/availabilityImport.js`)
 narrows a one-off available date to specific reception slots — e.g. "7 Aug early
 only" from a pasted staff message. Absent or empty means any slot. Eligibility

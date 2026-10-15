@@ -7,7 +7,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { timingSafeEqual } from 'node:crypto';
-import { buildParsePrompt, PARSED_AVAILABILITY_SCHEMA, MAX_PASTE_CHARS } from '../app/availabilityImport.js';
+import { buildParsePrompt, parsedAvailabilitySchema, MAX_PASTE_CHARS } from '../app/availabilityImport.js';
 
 export const config = { maxDuration: 60 };
 
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'AI reading is not set up on this deployment - use the copy/paste option instead.' });
   }
 
-  const { passcode, text, staff, year, month } = req.body ?? {};
+  const { passcode, text, staff, year, month, specialShifts = [] } = req.body ?? {};
   if (!passcodeOk(passcode)) return res.status(401).json({ error: 'Wrong passcode.' });
   if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ error: 'Paste some availability text first.' });
   if (text.length > MAX_PASTE_CHARS) return res.status(400).json({ error: `That's too long - paste under ${MAX_PASTE_CHARS} characters at a time.` });
@@ -33,6 +33,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing staff list or month.' });
   }
   const roster = staff.map((s) => ({ name: String(s.name).slice(0, 80), role: s.role === 'therapist' ? 'therapist' : 'receptionist' }));
+  const isTime = (t) => /^\d{2}:\d{2}$/.test(t);
+  const specials = (Array.isArray(specialShifts) ? specialShifts.slice(0, 20) : [])
+    .filter((t) => t && typeof t.name === 'string' && isTime(t.start) && isTime(t.end))
+    .map((t) => ({
+      name: t.name.slice(0, 60), start: t.start, end: t.end,
+      daysOfWeek: Array.isArray(t.daysOfWeek) ? t.daysOfWeek.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6) : null,
+    }));
 
   try {
     const client = new Anthropic(); // reads ANTHROPIC_API_KEY
@@ -43,9 +50,9 @@ export default async function handler(req, res) {
       fallbacks: 'default',
       output_config: {
         effort: 'medium',
-        format: { type: 'json_schema', schema: PARSED_AVAILABILITY_SCHEMA },
+        format: { type: 'json_schema', schema: parsedAvailabilitySchema([...new Set(specials.map((t) => t.name))]) },
       },
-      messages: [{ role: 'user', content: buildParsePrompt({ staff: roster, year, month, text }) }],
+      messages: [{ role: 'user', content: buildParsePrompt({ staff: roster, year, month, text, specialShifts: specials }) }],
     });
 
     if (response.stop_reason === 'refusal') {

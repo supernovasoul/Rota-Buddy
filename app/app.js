@@ -15,7 +15,7 @@ import {
 import { forecastHoursForDate, setForecastHours, applyWeekdayWeekendDefaults } from './demand.js';
 import { generateAvailabilityRequestMessage } from './availabilityMessage.js';
 import {
-  buildChatFallbackPrompt, extractJson, validateParsedAvailability, applyAvailabilityImport, MAX_PASTE_CHARS,
+  buildChatFallbackPrompt, extractJson, validateParsedAvailability, applyAvailabilityImport, MAX_PASTE_CHARS, specialShiftsFrom,
 } from './availabilityImport.js';
 import { buildEligibility } from './engine/eligibility.js';
 import { solveChainedWeeks } from './engine/v2/chainedWeeks.js';
@@ -133,6 +133,16 @@ const stEnd = document.getElementById('st-end');
 const stBreak = document.getElementById('st-break');
 const stSlotField = document.getElementById('st-slot-field');
 const stSlot = document.getElementById('st-slot');
+const stReceptionExtras = document.getElementById('st-reception-extras');
+const stDayBoxes = [...document.querySelectorAll('input[name="st-day"]')];
+const stOnlyIfOffered = document.getElementById('st-only-if-offered');
+
+// daysOfWeek is stored as null when every day is ticked, so an untouched
+// shift type keeps meaning "every day" (see app/data-model.md).
+function readReceptionExtras() {
+  const days = stDayBoxes.filter((b) => b.checked).map((b) => Number(b.value));
+  return { daysOfWeek: days.length === 7 ? null : days, onlyIfOffered: stOnlyIfOffered.checked };
+}
 
 // Scheduling rules
 const capHoursInput = document.getElementById('cap-hours');
@@ -597,14 +607,15 @@ function renderShiftTypesTable(wrap, role) {
     <td>${t.start}&ndash;${t.end}</td>
     <td>${t.breakMinutes} min</td>
     <td>${shiftTypePaidHours(t)}h paid</td>
-    ${role === 'receptionist' ? `<td>${t.slot ? SLOT_TITLES[t.slot] : '<span class="hint">not set</span>'}</td>` : ''}
+    ${role === 'receptionist' ? `<td>${t.slot ? SLOT_TITLES[t.slot] : '<span class="hint">not set</span>'}</td>
+    <td>${shiftTypeDaysLabel(t.daysOfWeek)}${t.onlyIfOffered ? '<br><span class="hint">only if offered</span>' : ''}</td>` : ''}
     <td>
       <button class="link" data-action="edit-shift-type" data-role="${role}" data-id="${t.id}">Edit</button>
       <button class="link danger" data-action="remove-shift-type" data-role="${role}" data-id="${t.id}">Remove</button>
     </td>
   </tr>`).join('');
   wrap.innerHTML = `<table>
-    <thead><tr><th>Name</th><th>Hours</th><th>Break</th><th>Paid</th>${role === 'receptionist' ? '<th>Pattern slot</th>' : ''}<th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>Hours</th><th>Break</th><th>Paid</th>${role === 'receptionist' ? '<th>Pattern slot</th><th>Runs</th>' : ''}<th>Actions</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 
@@ -628,6 +639,14 @@ function renderShiftTypesTable(wrap, role) {
   });
 }
 
+function shiftTypeDaysLabel(daysOfWeek) {
+  if (!daysOfWeek || daysOfWeek.length === 7) return 'Every day';
+  const key = [...daysOfWeek].sort().join(',');
+  if (key === '0,1,2,3,4') return 'Weekdays';
+  if (key === '5,6') return 'Weekends';
+  return [...daysOfWeek].sort().map((d) => DAY_LABELS[d]).join(', ');
+}
+
 function renderShiftTypesPanel() {
   renderShiftTypesTable(receptionShiftTypesWrap, 'receptionist');
   renderShiftTypesTable(therapistShiftTypesWrap, 'therapist');
@@ -647,6 +666,9 @@ function openShiftTypeForm(role, existing) {
   stBreak.value = draft.breakMinutes;
   stSlotField.hidden = role !== 'receptionist';
   stSlot.value = role === 'receptionist' ? (draft.slot ?? '') : '';
+  stReceptionExtras.hidden = role !== 'receptionist';
+  stDayBoxes.forEach((box) => { box.checked = !draft.daysOfWeek || draft.daysOfWeek.includes(Number(box.value)); });
+  stOnlyIfOffered.checked = !!draft.onlyIfOffered;
 
   shiftTypeOverlay.hidden = false;
   stName.focus();
@@ -673,7 +695,7 @@ shiftTypeForm.addEventListener('submit', (e) => {
     start: stStart.value,
     end: stEnd.value,
     breakMinutes: stBreak.value === '' ? 0 : Number(stBreak.value),
-    ...(role === 'receptionist' ? { slot: stSlot.value } : {}),
+    ...(role === 'receptionist' ? { slot: stSlot.value, ...readReceptionExtras() } : {}),
   };
   const errors = validateShiftTypeDraft(draft, role);
   if (errors.length > 0) {
@@ -845,9 +867,14 @@ function renderAvailabilityGrid() {
       const available = effectiveAvailability(s.id, d, state.availability, state.availabilityPatterns);
       const overridden = hasExplicitOverride(s.id, d, state.availability);
       const override = overridden ? state.availability.find((a) => a.staffId === s.id && a.dateFrom <= d && d <= a.dateTo) : null;
-      const slots = available && override?.shiftSlots?.length ? override.shiftSlots : null;
-      const mark = slots ? `<span class="slot-mark">${slots.map((sl) => SLOT_LABELS[sl]).join('')}</span>` : '';
-      const title = [slots ? `Only: ${slots.map((sl) => SLOT_TITLES[sl]).join(', ')}` : '', override?.note ?? ''].filter(Boolean).join(' - ');
+      const slots = available && override?.shiftSlots?.length ? override.shiftSlots : [];
+      const specials = available && override?.offeredShiftTypeIds?.length
+        ? override.offeredShiftTypeIds.map((id) => currentShiftTypeSet.receptionShiftTypes.find((t) => t.id === id)).filter(Boolean)
+        : [];
+      const markText = slots.map((sl) => SLOT_LABELS[sl]).join('') + (specials.length ? '*' : '');
+      const mark = markText ? `<span class="slot-mark">${markText}</span>` : '';
+      const offered = [...slots.map((sl) => SLOT_TITLES[sl]), ...specials.map((t) => `${t.name} ${t.start}-${t.end}`)];
+      const title = [offered.length ? `Only: ${offered.join(', ')}` : '', override?.note ?? ''].filter(Boolean).join(' - ');
       return `<td class="avail-cell ${available ? 'available' : 'unavailable'} ${overridden ? 'overridden' : ''}" data-staff-id="${s.id}" data-date="${d}"${title ? ` title="${escapeHtml(title)}"` : ''}>${mark}</td>`;
     }).join('');
     return `<tr><td class="staff-name-cell">${escapeHtml(s.name)}</td>${cells}</tr>`;
@@ -945,6 +972,10 @@ function showErrors(el, messages) {
   el.innerHTML = messages.length === 1 ? escapeHtml(messages[0]) : `<ul>${messages.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}</ul>`;
 }
 
+function specialShiftsForImport() {
+  return specialShiftsFrom(currentShiftTypeSet.receptionShiftTypes);
+}
+
 function rosterForImport() {
   return activeStaffSorted().map((s) => ({ name: s.name, role: s.role }));
 }
@@ -983,7 +1014,7 @@ importReadBtn.addEventListener('click', async () => {
     const res = await fetch('/api/parse-availability', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passcode, text, staff: rosterForImport(), year, month }),
+      body: JSON.stringify({ passcode, text, staff: rosterForImport(), year, month, specialShifts: specialShiftsForImport() }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "AI reading isn't available here (it only runs on the deployed site) - use the free Claude chat option below.");
@@ -1003,7 +1034,7 @@ importReadBtn.addEventListener('click', async () => {
 document.getElementById('import-fallback-btn').addEventListener('click', () => {
   const { year, month } = importMonth();
   const text = importText.value.trim() || '(paste the staff messages here)';
-  importFallbackPrompt.value = buildChatFallbackPrompt({ staff: rosterForImport(), year, month, text });
+  importFallbackPrompt.value = buildChatFallbackPrompt({ staff: rosterForImport(), year, month, text, specialShifts: specialShiftsForImport() });
   importFallbackReply.value = '';
   showErrors(importFallbackErrors, []);
   showImportStep('fallback');
@@ -1039,7 +1070,9 @@ const UNMENTIONED_LABELS = {
 
 function showImportPreview(parsed, year, month) {
   const staff = activeStaffSorted();
-  const { people, problems, unrecognisedText } = validateParsedAvailability(parsed, staff, year, month);
+  const specials = specialShiftsForImport();
+  const specialNames = new Map(specials.map((t) => [t.id, `${t.name} ${t.start}-${t.end}`]));
+  const { people, problems, unrecognisedText } = validateParsedAvailability(parsed, staff, year, month, specials);
   const allProblems = [...problems, ...unrecognisedText.map((t) => `Not understood: "${t}"`)];
   showErrors(importProblems, allProblems);
 
@@ -1049,7 +1082,8 @@ function showImportPreview(parsed, year, month) {
     importPreview.innerHTML = people.map((p) => {
       const days = p.days.map((d) => {
         const label = fmtDate(d.date, { includeYear: false, includeWeekday: true });
-        const what = d.status === 'unavailable' ? 'off' : d.slots.length ? d.slots.map((sl) => SLOT_TITLES[sl].toLowerCase()).join('/') : 'any';
+        const offered = [...d.slots.map((sl) => SLOT_TITLES[sl].toLowerCase()), ...d.specialShiftIds.map((id) => escapeHtml(specialNames.get(id)))];
+        const what = d.status === 'unavailable' ? 'off' : offered.length ? offered.join(' / ') : 'any';
         const note = d.note ? ` <span class="note">(${escapeHtml(d.note)})</span>` : '';
         return `<span class="import-day ${d.status}">${escapeHtml(label)} &middot; ${what}${note}</span>`;
       }).join('');

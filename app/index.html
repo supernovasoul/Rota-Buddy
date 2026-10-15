@@ -206,6 +206,8 @@
   .avail-cell.overridden { box-shadow: inset 0 0 0 2px var(--accent); }
   .avail-cell .slot-mark { font-weight: 700; font-size: 0.62rem; letter-spacing: -0.02em; }
   .form-panel.wide { max-width: 760px; }
+  .day-checks { display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; }
+  .day-checks label, .check-label { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.88rem; color: var(--ink); }
   .import-step[hidden] { display: none; }
   .import-or { display: flex; align-items: center; gap: 0.6rem; color: var(--muted); font-size: 0.8rem; margin: 1rem 0 0.6rem; }
   .import-or::before, .import-or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
@@ -692,6 +694,24 @@
           <option value="full">Full day</option>
         </select>
         <p class="hint">Which column in receptionists' weekly availability pattern this shift type belongs to.</p>
+      </div>
+      <div id="st-reception-extras" hidden>
+        <div class="field">
+          <label>Runs on</label>
+          <div class="day-checks">
+            <label><input type="checkbox" name="st-day" value="0"> Mon</label>
+            <label><input type="checkbox" name="st-day" value="1"> Tue</label>
+            <label><input type="checkbox" name="st-day" value="2"> Wed</label>
+            <label><input type="checkbox" name="st-day" value="3"> Thu</label>
+            <label><input type="checkbox" name="st-day" value="4"> Fri</label>
+            <label><input type="checkbox" name="st-day" value="5"> Sat</label>
+            <label><input type="checkbox" name="st-day" value="6"> Sun</label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="check-label"><input type="checkbox" id="st-only-if-offered"> Only use if someone offers it</label>
+          <p class="hint">For non-standard shifts (e.g. 10:30&ndash;16:15, or a Saturday half day). The rota only uses it for someone whose pasted availability asks for it on that date.</p>
+        </div>
       </div>
 
       <div class="form-actions">

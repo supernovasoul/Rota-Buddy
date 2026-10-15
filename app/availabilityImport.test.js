@@ -100,3 +100,41 @@ test('applyAvailabilityImport: "pattern" leaves unmentioned days following the w
   assert.equal(result.length, 1);
   assert.equal(result[0].note, 'spa training');
 });
+
+const SPECIALS = [
+  { id: 'le', name: 'Long early', start: '10:30', end: '16:15', daysOfWeek: [0, 1, 2, 3, 4] },
+  { id: 'sa', name: 'Saturday morning', start: '08:30', end: '13:15', daysOfWeek: [5] },
+];
+
+test('buildParsePrompt / schema: special shifts are listed and constrained to configured names', () => {
+  const prompt = buildChatFallbackPrompt({ staff: STAFF, year: 2026, month: 8, text: 'x', specialShifts: SPECIALS });
+  assert.match(prompt, /"Long early": 10:30-16:15, Mon\/Tue\/Wed\/Thu\/Fri/);
+  assert.match(prompt, /"enum":\["Long early","Saturday morning"\]/);
+});
+
+test('validateParsedAvailability: maps special shift names to ids, rejects wrong days and unknown names', () => {
+  const { people, problems } = validateParsedAvailability({
+    people: [{ staffName: 'Jo', unmentionedDays: 'unavailable', notes: [], days: [
+      { date: '2026-08-08', status: 'available', slots: [], specialShifts: ['saturday morning'], note: '' }, // Sat half day
+      { date: '2026-08-10', status: 'available', slots: ['later'], specialShifts: ['Long early'], note: '' }, // Mon
+      { date: '2026-08-11', status: 'available', slots: [], specialShifts: ['Saturday morning'], note: '' }, // Tue - wrong day
+      { date: '2026-08-12', status: 'available', slots: [], specialShifts: ['Night shift'], note: '' },
+    ] }],
+    unrecognisedText: [],
+  }, STAFF, 2026, 8, SPECIALS);
+  const byDate = Object.fromEntries(people[0].days.map((d) => [d.date, d]));
+  assert.deepEqual(byDate['2026-08-08'], { date: '2026-08-08', status: 'available', slots: [], specialShiftIds: ['sa'], note: '' });
+  assert.deepEqual(byDate['2026-08-10'].slots, ['later']);
+  assert.deepEqual(byDate['2026-08-10'].specialShiftIds, ['le']);
+  assert.equal(byDate['2026-08-11'].status, 'unavailable', 'asked only for a shift that does not run that day - not "any"');
+  assert.equal(byDate['2026-08-12'].status, 'unavailable');
+  assert.equal(problems.length, 2);
+});
+
+test('applyAvailabilityImport: writes offeredShiftTypeIds', () => {
+  const result = applyAvailabilityImport([], [{ staffId: 's2', staffName: 'Jo', unmentionedDays: 'pattern', notes: [], days: [
+    { date: '2026-08-08', status: 'available', slots: [], specialShiftIds: ['sa'], note: '' },
+  ] }], 2026, 8, newId);
+  assert.deepEqual(result[0].offeredShiftTypeIds, ['sa']);
+  assert.equal(result[0].shiftSlots, undefined);
+});

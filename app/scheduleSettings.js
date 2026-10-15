@@ -73,6 +73,9 @@ export function validateShiftTypeDraft(draft, role) {
   if (draft.breakMinutes === null || draft.breakMinutes === undefined || Number(draft.breakMinutes) < 0) {
     errors.push('Break minutes cannot be negative.');
   }
+  if (Array.isArray(draft.daysOfWeek) && draft.daysOfWeek.length === 0) {
+    errors.push('Tick at least one day this shift type runs on.');
+  }
   if (role === 'receptionist' && !['early', 'later', 'full'].includes(draft.slot)) {
     errors.push('Choose which recurring-pattern slot (Early, Later, or Full day) this reception shift type belongs to.');
   }
