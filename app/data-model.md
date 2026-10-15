@@ -52,15 +52,65 @@ fields from historic references; archiving (`endDate` set) is the normal
 leaver path and keeps everything intact.
 
 ## `availabilityPatterns[]`
+Two row shapes share this array, told apart by whether `shiftSlot` is
+present — each staffId is configured in exactly one shape at a time,
+whichever pattern editor last wrote their rows:
 ```
+// Therapists (and any receptionist not yet re-saved through the slotted
+// editor below) — day-level only, unchanged from the old model. Confirmed
+// 2026-09-02: therapists don't split shifts, so their recurring pattern
+// stays a plain per-day yes/no.
 { staffId, dayOfWeek: 0-6, available: true|false }
+
+// Receptionists — slotted, added 2026-09-02 to close the gap where
+// availability couldn't say WHICH shift someone meant. Weekdays
+// (dayOfWeek 0-4) get three rows, one per slot; weekends (5-6) get one
+// (slot is always "full" there — reception weekend shifts are whole-day
+// only). The pattern editor always writes all 17 rows for a receptionist
+// in one go (5*3 + 2*1), the same all-or-nothing write `setWeeklyPattern`
+// already used, so "never configured" (unconstrained) stays distinguishable
+// from "configured, nothing ticked".
+{ staffId, dayOfWeek: 0-6, shiftSlot: "early"|"later"|"full", available: true|false }
 ```
-Recurring weekly pattern, unchanged from the old model.
+`shiftSlot` is a fixed, small vocabulary independent of the actual
+`shiftTypeSets` in force for a given period (see below) — it's what the
+pattern editor shows, not a shift type ID, so the recurring pattern stays
+stable even if shift type names/times change later. A receptionist's
+one-off `availability[]` exceptions (below) stay day-level, same as
+therapists' — only the *recurring* pattern is slot-aware; painting "only
+available for lates next Tuesday" isn't supported, on the reasoning that
+one-off exceptions are mostly holiday/sick (which block the whole day
+anyway) and a genuine one-off shift-only need is rare enough to just
+message about directly.
+
+No migration was written for the receptionist shape change: no real rota
+data has been entered into the app in this form yet (see the RotaFable
+status memory), and the two shapes coexist safely regardless — a
+receptionist with old-shape (day-level) rows is read exactly as before
+until they're re-saved through the new slotted pattern editor, at which
+point all their rows become slotted in one write.
+
+**Solver/eligibility side:** `app/engine/eligibility.js`'s `isAvailable`/
+`isEligible` take an optional third `shiftType` argument. When the person
+has slotted rows and a `shiftType.slot` is given, availability is checked
+against that exact `(dayOfWeek, slot)` pair; with no `shiftType` given it
+rolls up to "available in at least one slot that day" (used by fairness's
+eligible-pool checks, which only need a yes/no for the day). This is what
+actually stops the solver from assigning a shift type someone never
+ticked — closing the previously-known gap where day-level-only
+availability let the solver put someone on a shift shape that contradicted
+a stated single-shift preference.
 
 ## `availability[]`
 ```
-{ id, staffId, dateFrom, dateTo, type: "holiday"|"sick"|"unavailable"|"available", note }
+{ id, staffId, dateFrom, dateTo, type: "holiday"|"sick"|"unavailable"|"available", note,
+  shiftSlots?: ["early"|"later"|"full", ...] }   // optional, "available" rows only
 ```
+`shiftSlots` (added 2026-10-15 with Paste availability, `app/availabilityImport.js`)
+narrows a one-off available date to specific reception slots — e.g. "7 Aug early
+only" from a pasted staff message. Absent or empty means any slot. Eligibility
+checks it exactly like the slotted weekly pattern; painting a cell on the grid
+writes a plain row without it.
 One-off exceptions to the recurring `availabilityPatterns[]` default — and
 genuinely two-way, confirmed 2026-07-22 when building the Phase 5
 availability grid: `holiday`/`sick`/`unavailable` take a date away even if
@@ -94,17 +144,39 @@ while entering a specific month's data.
 {
   id, effectiveFrom, effectiveTo,   // which month(s)/period this shape applies to
   receptionShiftTypes: [
-    { id, name: "Morning", start: "10:30", end: "15:30", breakMinutes: 0 },
-    { id, name: "Late", start: "15:15", end: "21:00", breakMinutes: 30 },
-    { id, name: "Whole day", start: "10:30", end: "21:00", breakMinutes: 60 },
-    { id, name: "Weekend full day", start: "08:30", end: "18:00", breakMinutes: 60 }
+    { id, name: "Morning", start: "10:30", end: "15:30", breakMinutes: 0, slot: "early" },
+    { id, name: "Late", start: "15:15", end: "21:00", breakMinutes: 30, slot: "later" },
+    { id, name: "Whole day", start: "10:30", end: "21:00", breakMinutes: 60, slot: "full" },
+    { id, name: "Weekend full day", start: "08:30", end: "18:00", breakMinutes: 60, slot: "full" }
   ],
   therapistShiftTypes: [
-    { id, name: "Weekday", start: "11:00", end: "20:00", breakMinutes: 60 },
+    { id, name: "11-6", start: "11:00", end: "18:00", breakMinutes: 0 },
+    { id, name: "12-7", start: "12:00", end: "19:00", breakMinutes: 0 },
+    { id, name: "1-8", start: "13:00", end: "20:00", breakMinutes: 0 },
+    { id, name: "11-8", start: "11:00", end: "20:00", breakMinutes: 60 },
     { id, name: "Weekend", start: "09:00", end: "17:00", breakMinutes: 30 }
   ]
 }
 ```
+`slot` (reception only, required — see `availabilityPatterns[]` above) ties
+a shift type to the fixed early/later/full pattern-editor vocabulary; two
+reception shift types can share a slot (e.g. both weekday "Whole day" and
+"Weekend full day" are `slot: "full"`) since they never both apply to the
+same date. Editing which shift types exist, their times, or their slot
+mapping is a normal Settings action, same as any other shift type edit.
+
+**Therapist shift lengths, confirmed 2026-09-02:** therapist availability
+stays day-only in `availabilityPatterns[]` (they don't split shifts), but
+actual shift *length* varies per person per day (11-6, 12-7, 1-8, or a
+longer 11-8) — this needs no new schema, since `therapistShiftTypes[]`
+already supports any number of named entries with their own start/end
+(paid hours computed the same `shiftTypePaidHours` way as reception). The
+example above lists the real current lengths instead of one generic
+"Weekday" entry. `app/engine/v2/therapistSolver.js` already picks whichever
+configured shift type brings each person's running total closest to their
+fair share, independently per person per day — a single day can genuinely
+mix a 7h shift for one therapist and a 9h shift for another, no solver
+change needed (see [[project-therapist-solver]]).
 `start`/`end` are wall-clock — they drive the reception coverage combination
 search and the 11h rest-between-shifts gap, both genuinely about clock time.
 `breakMinutes` is a separate, independently editable field per shift type

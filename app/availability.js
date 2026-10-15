@@ -30,11 +30,57 @@ export function patternDaysOfWeek(availabilityPatterns, staffId) {
   const days = new Set();
   let hasPattern = false;
   for (const p of availabilityPatterns) {
-    if (p.staffId !== staffId) continue;
+    if (p.staffId !== staffId || p.shiftSlot) continue; // slotted rows are reception's - see receptionPatternSlots
     hasPattern = true;
     if (p.available) days.add(p.dayOfWeek);
   }
   return { hasPattern, days };
+}
+
+// Reception's recurring pattern is shift-slot-aware, not just day-level:
+// weekdays (dayOfWeek 0-4) get three independently-checkable slots since
+// receptionists split days ('early'/'later'/'full'); weekends (5-6) are
+// full-day-only shifts, so there's only ever one slot to check. This
+// mirrors whichever of that day's shiftTypeSet.receptionShiftTypes has a
+// matching .slot, but is deliberately a fixed, small vocabulary here
+// rather than derived from the (editable, renameable) shift type list -
+// so the pattern editor stays stable even if shift type names/times change.
+export const RECEPTION_WEEKDAY_SLOTS = ['early', 'later', 'full'];
+export const RECEPTION_WEEKEND_SLOTS = ['full'];
+export function receptionSlotsForDay(dayOfWeek) {
+  return dayOfWeek <= 4 ? RECEPTION_WEEKDAY_SLOTS : RECEPTION_WEEKEND_SLOTS;
+}
+
+// Every (dayOfWeek, shiftSlot) pair this receptionist is marked available
+// in their recurring pattern - the slotted sibling of patternDaysOfWeek.
+// hasPattern distinguishes "never configured" (unconstrained - available
+// every slot by default) from "configured, everything unchecked".
+export function receptionPatternSlots(availabilityPatterns, staffId) {
+  const slots = new Set(); // `${dayOfWeek}:${shiftSlot}`
+  let hasPattern = false;
+  for (const p of availabilityPatterns) {
+    if (p.staffId !== staffId || !p.shiftSlot) continue;
+    hasPattern = true;
+    if (p.available) slots.add(`${p.dayOfWeek}:${p.shiftSlot}`);
+  }
+  return { hasPattern, slots };
+}
+
+// Replaces this receptionist's entire recurring pattern in one go, the
+// slotted sibling of setWeeklyPattern - always writes every (dayOfWeek,
+// shiftSlot) row explicitly (5 weekdays x 3 slots + 2 weekend days x 1
+// slot = 17 rows), same all-or-nothing write as the day-level editor, so
+// "never configured" vs "configured, nothing checked" stays unambiguous.
+// selections is a Set of `${dayOfWeek}:${shiftSlot}` keys to mark available.
+export function setReceptionWeeklyPattern(availabilityPatterns, staffId, selections) {
+  const withoutThisPerson = availabilityPatterns.filter((p) => p.staffId !== staffId);
+  const fresh = [];
+  for (let dow = 0; dow <= 6; dow++) {
+    for (const slot of receptionSlotsForDay(dow)) {
+      fresh.push({ staffId, dayOfWeek: dow, shiftSlot: slot, available: selections.has(`${dow}:${slot}`) });
+    }
+  }
+  return [...withoutThisPerson, ...fresh];
 }
 
 // Replaces this person's entire recurring pattern in one go - the editor
@@ -58,8 +104,18 @@ export function effectiveAvailability(staffId, dateIso, availability, availabili
   if (override) return override.type === 'available';
 
   const { hasPattern, days } = patternDaysOfWeek(availabilityPatterns, staffId);
-  if (!hasPattern) return true;
-  return days.has(isoWeekday(dateIso));
+  if (hasPattern) return days.has(isoWeekday(dateIso));
+
+  // Reception's slotted pattern has no single day-level flag - the month
+  // grid (and anything else asking "available at all today") rolls it up
+  // to "available in at least one shift slot that day".
+  const { hasPattern: hasSlotPattern, slots } = receptionPatternSlots(availabilityPatterns, staffId);
+  if (hasSlotPattern) {
+    const dow = isoWeekday(dateIso);
+    return receptionSlotsForDay(dow).some((slot) => slots.has(`${dow}:${slot}`));
+  }
+
+  return true;
 }
 
 // true only if there's a one-off entry covering this exact single date -

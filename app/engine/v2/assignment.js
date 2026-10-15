@@ -13,7 +13,7 @@ import { weeklyCapHours } from './weeklyCap.js';
 // - this person's shifts already placed earlier in the same week's solve,
 // used to check the NEW shift against their existing rest gaps and cap.
 export function canAssign(person, shiftType, dateIso, personWeekState, eligibility, weeklyHourCapSetting) {
-  if (!eligibility.isEligible(person.id, dateIso)) return false;
+  if (!eligibility.isEligible(person.id, dateIso, shiftType)) return false;
 
   const wouldBeShifts = [
     ...personWeekState.assignedShifts,

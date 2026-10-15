@@ -189,6 +189,11 @@
 
   .pattern-days { display: flex; gap: 0.5rem; }
   .pattern-days label { display: flex; flex-direction: column; align-items: center; font-size: 0.72rem; color: var(--muted); gap: 0.2rem; }
+  .pattern-days-slotted { flex-wrap: wrap; gap: 0.7rem; }
+  .pattern-day-group { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.2rem 0.35rem; border-left: 1px solid var(--line); }
+  .pattern-day-group:first-child { border-left: none; }
+  .pattern-day-label { font-size: 0.72rem; color: var(--muted); font-weight: 600; margin-bottom: 0.1rem; }
+  .pattern-day-group label { display: flex; flex-direction: row; align-items: center; font-size: 0.68rem; color: var(--muted); gap: 0.15rem; }
 
   .avail-grid-table { border-collapse: collapse; user-select: none; }
   .avail-grid-table th, .avail-grid-table td { border: 1px solid var(--line); padding: 0; }
@@ -199,6 +204,20 @@
   .avail-cell.available { background: var(--moss-soft); color: var(--moss); }
   .avail-cell.unavailable { background: var(--clay-soft); color: var(--clay); }
   .avail-cell.overridden { box-shadow: inset 0 0 0 2px var(--accent); }
+  .avail-cell .slot-mark { font-weight: 700; font-size: 0.62rem; letter-spacing: -0.02em; }
+  .form-panel.wide { max-width: 760px; }
+  .import-step[hidden] { display: none; }
+  .import-or { display: flex; align-items: center; gap: 0.6rem; color: var(--muted); font-size: 0.8rem; margin: 1rem 0 0.6rem; }
+  .import-or::before, .import-or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+  .import-person { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.75rem 0.9rem; margin-bottom: 0.75rem; }
+  .import-person h3 { margin: 0 0 0.4rem; font-size: 0.95rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
+  .import-person h3 .hint { font-weight: 400; font-size: 0.78rem; color: var(--muted); }
+  .import-days { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .import-day { font-size: 0.78rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: var(--moss-soft); color: var(--moss); white-space: nowrap; }
+  .import-day.unavailable { background: var(--clay-soft); color: var(--clay); }
+  .import-day .note { opacity: 0.8; font-style: italic; }
+  .import-notes { margin: 0.5rem 0 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--warn-ink); }
+  .import-status { font-size: 0.85rem; color: var(--muted); margin: 0.5rem 0 0; min-height: 1.2em; }
   .message-textarea { width: 100%; font: inherit; padding: 0.5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-raised); color: var(--ink); }
 
   .summary-line { background: var(--bg-soft); border-radius: var(--radius); padding: 0.65rem 0.85rem; font-size: 0.9rem; margin-bottom: 1rem; }
@@ -336,7 +355,7 @@
           <div class="panel-head">
             <h2>Weekly availability pattern</h2>
           </div>
-          <p class="hint" style="margin: -0.5rem 0 1rem;">The usual working days for each person - the starting template the month grid below is pre-filled from. Someone with no pattern set yet is available every day by default.</p>
+          <p class="hint" style="margin: -0.5rem 0 1rem;">The usual working pattern for each person - the starting template the month grid below is pre-filled from. Someone with nothing set yet is available every day (and every slot) by default. Receptionists: tick Early/Later/Full for each weekday (Full only on weekends). Therapists: just tick the days they work - which length shift they actually do each day is set separately, in Settings &rsaquo; Shift types.</p>
           <div id="pattern-table-wrap"></div>
         </section>
 
@@ -347,9 +366,10 @@
               <label for="grid-month">Month</label>
               <input type="month" id="grid-month">
               <button type="button" id="copy-last-month-btn">Copy last month</button>
+              <button type="button" class="primary" id="paste-avail-btn">&#10022; Paste availability</button>
             </div>
           </div>
-          <p class="hint" style="margin: -0.5rem 0 1rem;">Click, or click-and-drag across several days, to paint availability for this month. A solid marker means this date has been explicitly set; otherwise it's just following the weekly pattern.</p>
+          <p class="hint" style="margin: -0.5rem 0 1rem;">Click, or click-and-drag across several days, to paint availability for this month - or use <strong>Paste availability</strong> to fill it from staff messages. A solid marker means this date has been explicitly set; otherwise it's just following the weekly pattern. E/L/F means only that shift (Early/Later/Full day).</p>
           <div id="availability-grid-wrap" style="overflow-x: auto;"></div>
 
           <h3 style="font-size: 0.95rem; margin: 1.25rem 0 0.75rem;">Therapist demand (forecast hours)</h3>
@@ -551,6 +571,61 @@
     </div>
   </div>
 
+  <div class="overlay" id="import-overlay" hidden>
+    <div class="form-panel wide">
+      <h2 id="import-title">Paste availability</h2>
+
+      <div class="import-step" id="import-step-input">
+        <p class="hint" style="margin-top: -0.5rem;">Paste the replies exactly as staff sent them - one person or the whole team, any wording ("7th early, 9th maybe all day", "Tues &amp; Thurs only"). Claude reads them, then you check a preview before anything changes.</p>
+        <div class="field">
+          <label for="import-text">Availability messages for <span id="import-month-label"></span></label>
+          <textarea id="import-text" class="message-textarea" rows="10" placeholder="Jo:&#10;7 Aug early&#10;9 Aug late, maybe all day&#10;17 Aug spa training&#10;&#10;AK - Tuesdays and Thursdays, early or late"></textarea>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="import-passcode">Passcode</label>
+            <input type="text" id="import-passcode" autocomplete="off" placeholder="Needed for AI reading">
+          </div>
+        </div>
+        <div class="errors" id="import-errors" hidden></div>
+        <div class="form-actions">
+          <button type="button" id="import-cancel-btn">Cancel</button>
+          <button type="button" class="primary" id="import-read-btn">&#10022; Read with AI</button>
+        </div>
+        <p class="import-status" id="import-status"></p>
+        <div class="import-or">no passcode?</div>
+        <button type="button" id="import-fallback-btn">Use a Claude chat instead (free)</button>
+      </div>
+
+      <div class="import-step" id="import-step-fallback" hidden>
+        <p class="hint" style="margin-top: -0.5rem;">1. Copy this prompt into a Claude chat. 2. Paste Claude's whole reply in the second box.</p>
+        <textarea id="import-fallback-prompt" class="message-textarea" rows="6" readonly></textarea>
+        <div class="form-actions" style="justify-content: flex-start;">
+          <button type="button" id="import-fallback-copy-btn">Copy prompt</button>
+        </div>
+        <div class="field" style="margin-top: 0.75rem;">
+          <label for="import-fallback-reply">Claude's reply</label>
+          <textarea id="import-fallback-reply" class="message-textarea" rows="6"></textarea>
+        </div>
+        <div class="errors" id="import-fallback-errors" hidden></div>
+        <div class="form-actions">
+          <button type="button" id="import-fallback-back-btn">Back</button>
+          <button type="button" class="primary" id="import-fallback-read-btn">Preview</button>
+        </div>
+      </div>
+
+      <div class="import-step" id="import-step-preview" hidden>
+        <p class="hint" style="margin-top: -0.5rem;">Check this matches what they said. Applying replaces these people's availability for the whole month - everyone else is untouched.</p>
+        <div class="errors" id="import-problems" hidden></div>
+        <div id="import-preview"></div>
+        <div class="form-actions">
+          <button type="button" id="import-preview-back-btn">Back</button>
+          <button type="button" class="primary" id="import-apply-btn">Apply to grid</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="override-overlay" hidden>
     <form class="form-panel" id="override-form">
       <h2 id="override-form-title">Add override</h2>
@@ -607,6 +682,16 @@
       <div class="field">
         <label for="st-break">Unpaid break (minutes)</label>
         <input type="number" id="st-break" min="0" step="5">
+      </div>
+      <div class="field" id="st-slot-field" hidden>
+        <label for="st-slot">Recurring-pattern slot</label>
+        <select id="st-slot">
+          <option value="">Choose one&hellip;</option>
+          <option value="early">Early</option>
+          <option value="later">Later</option>
+          <option value="full">Full day</option>
+        </select>
+        <p class="hint">Which column in receptionists' weekly availability pattern this shift type belongs to.</p>
       </div>
 
       <div class="form-actions">

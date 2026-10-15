@@ -61,13 +61,28 @@ export function buildDemoState() {
   state.staff = [...receptionists, ...therapists];
 
   state.availabilityPatterns = [];
-  [...DEMO_RECEPTIONISTS.map((s, i) => [receptionists[i], s.days]), ...DEMO_THERAPISTS.map((s, i) => [therapists[i], s.days])]
-    .forEach(([staffMember, days]) => {
-      if (!days) return; // no pattern rows = available every day
-      for (let dow = 0; dow < 7; dow++) {
-        state.availabilityPatterns.push({ staffId: staffMember.id, dayOfWeek: dow, available: days.includes(dow) });
+  // Receptionists get the slotted pattern (early/later/full on weekdays,
+  // full only on weekends) - demo data marks them available in every slot
+  // on their available days, same "available all day" shape the old
+  // day-level demo pattern implied, just expressed in the new format.
+  DEMO_RECEPTIONISTS.forEach((s, i) => {
+    if (!s.days) return; // no pattern rows = available every day/slot
+    const staffMember = receptionists[i];
+    for (let dow = 0; dow < 7; dow++) {
+      const available = s.days.includes(dow);
+      for (const shiftSlot of (dow <= 4 ? ['early', 'later', 'full'] : ['full'])) {
+        state.availabilityPatterns.push({ staffId: staffMember.id, dayOfWeek: dow, shiftSlot, available });
       }
-    });
+    }
+  });
+  // Therapists keep the day-level pattern - no shift-slot splitting.
+  DEMO_THERAPISTS.forEach((s, i) => {
+    if (!s.days) return;
+    const staffMember = therapists[i];
+    for (let dow = 0; dow < 7; dow++) {
+      state.availabilityPatterns.push({ staffId: staffMember.id, dayOfWeek: dow, available: s.days.includes(dow) });
+    }
+  });
 
   state.openingHours = {
     defaultWeekday: { start: '10:30', end: '21:00' },
@@ -78,13 +93,26 @@ export function buildDemoState() {
   state.shiftTypeSets = [{
     id: newId(), effectiveFrom: '2020-01-01', effectiveTo: null,
     receptionShiftTypes: [
-      { id: newId(), name: 'Morning', start: '10:30', end: '15:30', breakMinutes: 0 },
-      { id: newId(), name: 'Late', start: '15:15', end: '21:00', breakMinutes: 30 },
-      { id: newId(), name: 'Whole day', start: '10:30', end: '21:00', breakMinutes: 60 },
-      { id: newId(), name: 'Weekend full day', start: '08:30', end: '18:00', breakMinutes: 60 },
+      // slot ties each shift type to the recurring-pattern's fixed
+      // early/later/full vocabulary (see app/availability.js) - keep this
+      // set whenever a shift type's name/times change, so the pattern
+      // editor and the solver's coverage combos stay in sync.
+      { id: newId(), name: 'Morning', start: '10:30', end: '15:30', breakMinutes: 0, slot: 'early' },
+      { id: newId(), name: 'Late', start: '15:15', end: '21:00', breakMinutes: 30, slot: 'later' },
+      { id: newId(), name: 'Whole day', start: '10:30', end: '21:00', breakMinutes: 60, slot: 'full' },
+      { id: newId(), name: 'Weekend full day', start: '08:30', end: '18:00', breakMinutes: 60, slot: 'full' },
     ],
+    // Multiple named lengths, not one fixed "Weekday" shift - a single
+    // day can genuinely mix lengths (one therapist on a 6h shift, another
+    // on 9h, same day - see [[project-therapist-solver]]). Availability
+    // stays day-only for therapists; whichever of these a person actually
+    // works on a given day is chosen at rota-generation/edit time, and
+    // its start/end here is what calculates their paid hours.
     therapistShiftTypes: [
-      { id: newId(), name: 'Weekday', start: '11:00', end: '20:00', breakMinutes: 60 },
+      { id: newId(), name: '11-6', start: '11:00', end: '18:00', breakMinutes: 0 },
+      { id: newId(), name: '12-7', start: '12:00', end: '19:00', breakMinutes: 0 },
+      { id: newId(), name: '1-8', start: '13:00', end: '20:00', breakMinutes: 0 },
+      { id: newId(), name: '11-8', start: '11:00', end: '20:00', breakMinutes: 60 },
       { id: newId(), name: 'Weekend', start: '09:00', end: '17:00', breakMinutes: 30 },
     ],
   }];

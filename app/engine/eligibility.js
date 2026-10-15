@@ -34,16 +34,33 @@ export function datesOfWeek(weekStartIso) {
 }
 
 export function buildEligibility(fixture) {
-  const patterns = new Map(); // staffId -> Set(dayOfWeek) they're available, only present if constrained
+  // Two parallel pattern shapes share availabilityPatterns[] (see
+  // app/data-model.md): day-level rows (no shiftSlot - therapists, and
+  // any receptionist not yet re-saved through the slotted pattern
+  // editor) and reception's slotted rows (shiftSlot: 'early'|'later'|
+  // 'full'). Each staffId is configured in at most one shape at a time -
+  // whichever pattern editor last wrote their rows - so a plain
+  // "which map has an entry for this person" check is enough to tell
+  // them apart, same "only present if constrained" convention as before.
+  const patterns = new Map(); // staffId -> Set(dayOfWeek) they're available
+  const slotPatterns = new Map(); // staffId -> Set(`${dayOfWeek}:${shiftSlot}`) they're available
   for (const row of fixture.availabilityPatterns ?? []) {
-    if (!patterns.has(row.staffId)) patterns.set(row.staffId, new Set());
-    if (row.available) patterns.get(row.staffId).add(row.dayOfWeek);
+    if (row.shiftSlot) {
+      if (!slotPatterns.has(row.staffId)) slotPatterns.set(row.staffId, new Set());
+      if (row.available) slotPatterns.get(row.staffId).add(`${row.dayOfWeek}:${row.shiftSlot}`);
+    } else {
+      if (!patterns.has(row.staffId)) patterns.set(row.staffId, new Set());
+      if (row.available) patterns.get(row.staffId).add(row.dayOfWeek);
+    }
   }
 
   const overrides = new Map(); // staffId -> [{from, to, available}]
   for (const row of fixture.availability ?? []) {
     if (!overrides.has(row.staffId)) overrides.set(row.staffId, []);
-    overrides.get(row.staffId).push({ from: row.dateFrom, to: row.dateTo, available: row.type === 'available' });
+    // shiftSlots (optional, 'available' rows only) narrows a one-off
+    // date to specific reception slots - e.g. "7 Aug early only" from a
+    // pasted availability message. Absent/empty means any slot.
+    overrides.get(row.staffId).push({ from: row.dateFrom, to: row.dateTo, available: row.type === 'available', shiftSlots: row.shiftSlots ?? null });
   }
 
   const startDates = new Map(fixture.staff.map((s) => [s.id, s.startDate]));
@@ -64,14 +81,35 @@ export function buildEligibility(fixture) {
     }
   }
 
-  function isAvailable(staffId, dateIso) {
+  // shiftType is optional - pass the actual shift type being considered
+  // (e.g. from a coverage combo) so a receptionist's slotted pattern can
+  // be checked against its .slot ('early'|'later'|'full'); omit it for a
+  // general "available at all today" question. See app/data-model.md's
+  // shiftTypeSets doc for where .slot comes from.
+  function isAvailable(staffId, dateIso, shiftType) {
     // an explicit override for this date - either direction - always
     // wins over the recurring pattern; the pattern is only consulted
     // when nothing was explicitly painted for this specific date.
-    for (const { from, to, available } of overrides.get(staffId) ?? []) {
-      if (from <= dateIso && dateIso <= to) return available;
+    for (const { from, to, available, shiftSlots } of overrides.get(staffId) ?? []) {
+      if (from <= dateIso && dateIso <= to) {
+        if (available && shiftSlots?.length && shiftType?.slot) return shiftSlots.includes(shiftType.slot);
+        return available;
+      }
     }
     const dow = isoWeekday(dateIso);
+
+    const slotPat = slotPatterns.get(staffId);
+    if (slotPat) {
+      if (shiftType?.slot) return slotPat.has(`${dow}:${shiftType.slot}`);
+      // no specific shift type given - roll up to "available in at
+      // least one slot today" (used by fairness's eligible-pool checks
+      // and other day-level-only callers).
+      for (const key of slotPat) {
+        if (key.startsWith(`${dow}:`)) return true;
+      }
+      return false;
+    }
+
     const pat = patterns.get(staffId);
     if (pat && !pat.has(dow)) return false;
     return true;
@@ -89,8 +127,8 @@ export function buildEligibility(fixture) {
     return restWeekExclusions.has(`${staffId}:${dateIso}`);
   }
 
-  function isEligible(staffId, dateIso) {
-    return hasStarted(staffId, dateIso) && isAvailable(staffId, dateIso) && !isForcedOff(staffId) && !isOnPlannedRestWeek(staffId, dateIso);
+  function isEligible(staffId, dateIso, shiftType) {
+    return hasStarted(staffId, dateIso) && isAvailable(staffId, dateIso, shiftType) && !isForcedOff(staffId) && !isOnPlannedRestWeek(staffId, dateIso);
   }
 
   return { isAvailable, hasStarted, isForcedOff, isOnPlannedRestWeek, isEligible };

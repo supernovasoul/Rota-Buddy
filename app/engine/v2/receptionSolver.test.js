@@ -311,3 +311,67 @@ test('solveReceptionWeek: a closed-override day needs no coverage and is reporte
   assert.equal(closedDay.unfilled, false);
   assert.deepEqual(closedDay.assignment, []);
 });
+
+// --- Slotted availability (early/later/full) actually constrains real assignment ---
+// Closes the known gap noted in project memory: availability used to be
+// day-level only, so the solver could put someone on a shift type that
+// contradicted a stated single-shift preference. Shift types now carry
+// .slot, and a receptionist's slotted pattern is checked against it.
+
+test('canAssign: a real slotted-pattern eligibility blocks a shift type outside the ticked slot', () => {
+  const morningWithSlot = { ...MORNING, slot: 'early' };
+  const lateWithSlot = { ...LATE, slot: 'later' };
+  const eligibility = buildEligibility({
+    staff: [{ id: 1, startDate: '2020-01-01' }],
+    availabilityPatterns: [
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: true }, // Monday, early only
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'later', available: false },
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'full', available: false },
+    ],
+  });
+  const person = { id: 1, weeklyHourCapOverride: null };
+  const state = { assignedShifts: [], paidHoursSoFar: 0 };
+  assert.equal(canAssign(person, morningWithSlot, '2026-08-03', state, eligibility, CAP_SETTING), true, 'ticked early - allowed');
+  assert.equal(canAssign(person, lateWithSlot, '2026-08-03', state, eligibility, CAP_SETTING), false, 'never ticked later - blocked');
+});
+
+test('feasibleAssignmentsForCombo: only offers a split shift type to whoever actually ticked its slot', () => {
+  const morningWithSlot = { ...MORNING, slot: 'early' };
+  const lateWithSlot = { ...LATE, slot: 'later' };
+  const eligibility = buildEligibility({
+    staff: [{ id: 1, startDate: '2020-01-01' }, { id: 2, startDate: '2020-01-01' }],
+    availabilityPatterns: [
+      // staff 1: early only. staff 2: later only.
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: true },
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'later', available: false },
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'full', available: false },
+      { staffId: 2, dayOfWeek: 0, shiftSlot: 'early', available: false },
+      { staffId: 2, dayOfWeek: 0, shiftSlot: 'later', available: true },
+      { staffId: 2, dayOfWeek: 0, shiftSlot: 'full', available: false },
+    ],
+  });
+  const receptionists = [{ id: 1, weeklyHourCapOverride: null }, { id: 2, weeklyHourCapOverride: null }];
+  const results = feasibleAssignmentsForCombo([morningWithSlot, lateWithSlot], '2026-08-03', receptionists, {}, eligibility, CAP_SETTING);
+  assert.equal(results.length, 1, 'only one valid pairing - staff 1 on early, staff 2 on later');
+  const byShiftType = Object.fromEntries(results[0].map((a) => [a.shiftType.slot, a.staffId]));
+  assert.equal(byShiftType.early, 1);
+  assert.equal(byShiftType.later, 2);
+});
+
+test('feasibleAssignmentsForCombo: a pasted "early only" date override pairs people by the slot they offered', () => {
+  const morningWithSlot = { ...MORNING, slot: 'early' };
+  const lateWithSlot = { ...LATE, slot: 'later' };
+  const eligibility = buildEligibility({
+    staff: [{ id: 1, startDate: '2020-01-01' }, { id: 2, startDate: '2020-01-01' }],
+    availability: [
+      { id: 'a', staffId: 1, dateFrom: '2026-08-03', dateTo: '2026-08-03', type: 'available', shiftSlots: ['early'] },
+      { id: 'b', staffId: 2, dateFrom: '2026-08-03', dateTo: '2026-08-03', type: 'available', shiftSlots: ['later'] },
+    ],
+  });
+  const receptionists = [{ id: 1, weeklyHourCapOverride: null }, { id: 2, weeklyHourCapOverride: null }];
+  const results = feasibleAssignmentsForCombo([morningWithSlot, lateWithSlot], '2026-08-03', receptionists, {}, eligibility, CAP_SETTING);
+  assert.equal(results.length, 1);
+  const byShiftType = Object.fromEntries(results[0].map((a) => [a.shiftType.slot, a.staffId]));
+  assert.equal(byShiftType.early, 1);
+  assert.equal(byShiftType.later, 2);
+});

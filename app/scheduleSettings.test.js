@@ -84,6 +84,21 @@ test('validateShiftTypeDraft: negative break minutes is invalid', () => {
   assert.ok(errors.some((e) => e.includes('Break minutes')));
 });
 
+test('validateShiftTypeDraft: a reception shift type needs a recognised pattern slot', () => {
+  const errors = validateShiftTypeDraft({ name: 'Morning', start: '10:30', end: '15:30', breakMinutes: 0, slot: '' }, 'receptionist');
+  assert.ok(errors.some((e) => e.includes('slot')));
+});
+
+test('validateShiftTypeDraft: a reception shift type with a valid slot has no slot-related error', () => {
+  const errors = validateShiftTypeDraft({ name: 'Morning', start: '10:30', end: '15:30', breakMinutes: 0, slot: 'early' }, 'receptionist');
+  assert.equal(errors.some((e) => e.includes('slot')), false);
+});
+
+test('validateShiftTypeDraft: a therapist shift type needs no slot at all', () => {
+  const errors = validateShiftTypeDraft({ name: 'Weekday', start: '11:00', end: '20:00', breakMinutes: 60 }, 'therapist');
+  assert.equal(errors.length, 0);
+});
+
 test('upsertShiftType: a draft with no id is added as a new entry with a fresh id', () => {
   const types = [{ id: 'a', name: 'Morning', start: '10:30', end: '15:30', breakMinutes: 0 }];
   const result = upsertShiftType(types, { id: null, name: 'Late', start: '15:15', end: '21:00', breakMinutes: 30 }, () => 'new-id');

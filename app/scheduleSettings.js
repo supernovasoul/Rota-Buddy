@@ -54,10 +54,15 @@ export function removeOverride(overrides, date) {
 }
 
 export function newShiftTypeDraft() {
-  return { id: null, name: '', start: '', end: '', breakMinutes: 0 };
+  return { id: null, name: '', start: '', end: '', breakMinutes: 0, slot: '' };
 }
 
-export function validateShiftTypeDraft(draft) {
+// role is optional context from the caller ('receptionist'|'therapist') -
+// only reception shift types need a .slot (see app/data-model.md's
+// shiftTypeSets doc), since that's what ties a shift type to the
+// early/later/full recurring-pattern editor. Therapist shift types (and
+// any caller not passing role at all) skip that check entirely.
+export function validateShiftTypeDraft(draft, role) {
   const errors = [];
   if (!draft.name || !draft.name.trim()) errors.push('Shift type name is required.');
   if (!isValidTime(draft.start) || !isValidTime(draft.end)) {
@@ -67,6 +72,9 @@ export function validateShiftTypeDraft(draft) {
   }
   if (draft.breakMinutes === null || draft.breakMinutes === undefined || Number(draft.breakMinutes) < 0) {
     errors.push('Break minutes cannot be negative.');
+  }
+  if (role === 'receptionist' && !['early', 'later', 'full'].includes(draft.slot)) {
+    errors.push('Choose which recurring-pattern slot (Early, Later, or Full day) this reception shift type belongs to.');
   }
   return errors;
 }

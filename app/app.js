@@ -10,9 +10,13 @@ import { isoWeekday } from './engine/eligibility.js';
 import {
   datesInMonth, previousMonth, patternDaysOfWeek, setWeeklyPattern, effectiveAvailability,
   hasExplicitOverride, setDayOverride, copyOverridesToMonth,
+  receptionPatternSlots, setReceptionWeeklyPattern, receptionSlotsForDay,
 } from './availability.js';
 import { forecastHoursForDate, setForecastHours, applyWeekdayWeekendDefaults } from './demand.js';
 import { generateAvailabilityRequestMessage } from './availabilityMessage.js';
+import {
+  buildChatFallbackPrompt, extractJson, validateParsedAvailability, applyAvailabilityImport, MAX_PASTE_CHARS,
+} from './availabilityImport.js';
 import { buildEligibility } from './engine/eligibility.js';
 import { solveChainedWeeks } from './engine/v2/chainedWeeks.js';
 import { weekStartsForMonth, summarizeGeneration } from './rotaGeneration.js';
@@ -127,6 +131,8 @@ const stName = document.getElementById('st-name');
 const stStart = document.getElementById('st-start');
 const stEnd = document.getElementById('st-end');
 const stBreak = document.getElementById('st-break');
+const stSlotField = document.getElementById('st-slot-field');
+const stSlot = document.getElementById('st-slot');
 
 // Scheduling rules
 const capHoursInput = document.getElementById('cap-hours');
@@ -143,6 +149,8 @@ const gridMonthInput = document.getElementById('grid-month');
 const copyLastMonthBtn = document.getElementById('copy-last-month-btn');
 const availabilityGridWrap = document.getElementById('availability-grid-wrap');
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const SLOT_LABELS = { early: 'E', later: 'L', full: 'F' };
+const SLOT_TITLES = { early: 'Early', later: 'Later', full: 'Full day' };
 let paintValue = null; // true/false while actively dragging a paint stroke; null when not painting
 
 const demandWeekdayDefault = document.getElementById('demand-weekday-default');
@@ -589,13 +597,14 @@ function renderShiftTypesTable(wrap, role) {
     <td>${t.start}&ndash;${t.end}</td>
     <td>${t.breakMinutes} min</td>
     <td>${shiftTypePaidHours(t)}h paid</td>
+    ${role === 'receptionist' ? `<td>${t.slot ? SLOT_TITLES[t.slot] : '<span class="hint">not set</span>'}</td>` : ''}
     <td>
       <button class="link" data-action="edit-shift-type" data-role="${role}" data-id="${t.id}">Edit</button>
       <button class="link danger" data-action="remove-shift-type" data-role="${role}" data-id="${t.id}">Remove</button>
     </td>
   </tr>`).join('');
   wrap.innerHTML = `<table>
-    <thead><tr><th>Name</th><th>Hours</th><th>Break</th><th>Paid</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>Hours</th><th>Break</th><th>Paid</th>${role === 'receptionist' ? '<th>Pattern slot</th>' : ''}<th>Actions</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 
@@ -636,6 +645,8 @@ function openShiftTypeForm(role, existing) {
   stStart.value = draft.start;
   stEnd.value = draft.end;
   stBreak.value = draft.breakMinutes;
+  stSlotField.hidden = role !== 'receptionist';
+  stSlot.value = role === 'receptionist' ? (draft.slot ?? '') : '';
 
   shiftTypeOverlay.hidden = false;
   stName.focus();
@@ -655,20 +666,21 @@ shiftTypeOverlay.addEventListener('click', (e) => { if (e.target === shiftTypeOv
 
 shiftTypeForm.addEventListener('submit', (e) => {
   e.preventDefault();
+  const role = addingShiftTypeRole;
   const draft = {
     id: editingShiftType ? editingShiftType.id : null,
     name: stName.value.trim(),
     start: stStart.value,
     end: stEnd.value,
     breakMinutes: stBreak.value === '' ? 0 : Number(stBreak.value),
+    ...(role === 'receptionist' ? { slot: stSlot.value } : {}),
   };
-  const errors = validateShiftTypeDraft(draft);
+  const errors = validateShiftTypeDraft(draft, role);
   if (errors.length > 0) {
     shiftTypeFormErrors.hidden = false;
     shiftTypeFormErrors.innerHTML = `<strong>Please fix the following:</strong><ul>${errors.map((err) => `<li>${escapeHtml(err)}</li>`).join('')}</ul>`;
     return;
   }
-  const role = addingShiftTypeRole;
   if (role === 'therapist') {
     currentShiftTypeSet.therapistShiftTypes = upsertShiftType(currentShiftTypeSet.therapistShiftTypes, draft, newId);
   } else {
@@ -717,6 +729,30 @@ function activeStaffSorted() {
   return state.staff.filter((s) => !isArchived(s, todayIso())).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Receptionists split days (early/later/full - full only on weekends);
+// therapists don't, so they keep the plain one-checkbox-per-day row. See
+// app/availability.js's receptionPatternSlots/setReceptionWeeklyPattern.
+function receptionPatternCell(s) {
+  const { hasPattern, slots } = receptionPatternSlots(state.availabilityPatterns, s.id);
+  const groups = DAY_LABELS.map((label, dow) => {
+    const slotCheckboxes = receptionSlotsForDay(dow).map((slot) => {
+      const checked = hasPattern ? slots.has(`${dow}:${slot}`) : true;
+      return `<label title="${SLOT_TITLES[slot]}"><input type="checkbox" class="pattern-slot-checkbox" data-staff-id="${s.id}" data-dow="${dow}" data-slot="${slot}" ${checked ? 'checked' : ''}>${SLOT_LABELS[slot]}</label>`;
+    }).join('');
+    return `<div class="pattern-day-group"><span class="pattern-day-label">${label}</span>${slotCheckboxes}</div>`;
+  }).join('');
+  return `<div class="pattern-days pattern-days-slotted">${groups}</div>`;
+}
+
+function therapistPatternCell(s) {
+  const { hasPattern, days } = patternDaysOfWeek(state.availabilityPatterns, s.id);
+  const checkboxes = DAY_LABELS.map((label, dow) => {
+    const checked = hasPattern ? days.has(dow) : true;
+    return `<label><input type="checkbox" class="pattern-checkbox" data-staff-id="${s.id}" data-dow="${dow}" ${checked ? 'checked' : ''}>${label}</label>`;
+  }).join('');
+  return `<div class="pattern-days">${checkboxes}</div>`;
+}
+
 function renderPatternTable() {
   const active = activeStaffSorted();
   if (active.length === 0) {
@@ -725,14 +761,10 @@ function renderPatternTable() {
   }
 
   const rows = active.map((s) => {
-    const { hasPattern, days } = patternDaysOfWeek(state.availabilityPatterns, s.id);
-    const checkboxes = DAY_LABELS.map((label, dow) => {
-      const checked = hasPattern ? days.has(dow) : true;
-      return `<label><input type="checkbox" class="pattern-checkbox" data-staff-id="${s.id}" data-dow="${dow}" ${checked ? 'checked' : ''}>${label}</label>`;
-    }).join('');
+    const cell = s.role === 'receptionist' ? receptionPatternCell(s) : therapistPatternCell(s);
     return `<tr>
       <td class="staff-name-cell" style="position:static;">${escapeHtml(s.name)}</td>
-      <td style="padding: 0.4rem 0.6rem;"><div class="pattern-days">${checkboxes}</div></td>
+      <td style="padding: 0.4rem 0.6rem;">${cell}</td>
       <td><button class="link" data-action="message" data-staff-id="${s.id}">Message</button></td>
     </tr>`;
   }).join('');
@@ -746,6 +778,18 @@ function renderPatternTable() {
       const availableDays = new Set();
       rowCheckboxes.forEach((c) => { if (c.checked) availableDays.add(Number(c.dataset.dow)); });
       state.availabilityPatterns = setWeeklyPattern(state.availabilityPatterns, staffId, availableDays);
+      persist();
+      renderAvailabilityGrid(); // the grid's defaults may have just shifted
+    });
+  });
+
+  patternTableWrap.querySelectorAll('.pattern-slot-checkbox').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const staffId = cb.dataset.staffId;
+      const rowCheckboxes = patternTableWrap.querySelectorAll(`.pattern-slot-checkbox[data-staff-id="${staffId}"]`);
+      const selections = new Set();
+      rowCheckboxes.forEach((c) => { if (c.checked) selections.add(`${c.dataset.dow}:${c.dataset.slot}`); });
+      state.availabilityPatterns = setReceptionWeeklyPattern(state.availabilityPatterns, staffId, selections);
       persist();
       renderAvailabilityGrid(); // the grid's defaults may have just shifted
     });
@@ -800,7 +844,11 @@ function renderAvailabilityGrid() {
     const cells = dates.map((d) => {
       const available = effectiveAvailability(s.id, d, state.availability, state.availabilityPatterns);
       const overridden = hasExplicitOverride(s.id, d, state.availability);
-      return `<td class="avail-cell ${available ? 'available' : 'unavailable'} ${overridden ? 'overridden' : ''}" data-staff-id="${s.id}" data-date="${d}"></td>`;
+      const override = overridden ? state.availability.find((a) => a.staffId === s.id && a.dateFrom <= d && d <= a.dateTo) : null;
+      const slots = available && override?.shiftSlots?.length ? override.shiftSlots : null;
+      const mark = slots ? `<span class="slot-mark">${slots.map((sl) => SLOT_LABELS[sl]).join('')}</span>` : '';
+      const title = [slots ? `Only: ${slots.map((sl) => SLOT_TITLES[sl]).join(', ')}` : '', override?.note ?? ''].filter(Boolean).join(' - ');
+      return `<td class="avail-cell ${available ? 'available' : 'unavailable'} ${overridden ? 'overridden' : ''}" data-staff-id="${s.id}" data-date="${d}"${title ? ` title="${escapeHtml(title)}"` : ''}>${mark}</td>`;
     }).join('');
     return `<tr><td class="staff-name-cell">${escapeHtml(s.name)}</td>${cells}</tr>`;
   }).join('');
@@ -857,6 +905,177 @@ copyLastMonthBtn.addEventListener('click', () => {
   state.availability = copyOverridesToMonth(state.availability, staffIds, fromDates, toDates, newId);
   persist();
   renderAvailabilityGrid();
+});
+
+// --- Paste availability (Claude reads staff messages) ---
+// See app/availabilityImport.js. Two ways in, one preview: the server
+// route (/api/parse-availability, needs the passcode) or the free
+// fallback - copy a prompt into a Claude chat, paste the JSON reply back.
+
+const PASSCODE_KEY = 'rotabuddy_import_passcode';
+const importOverlay = document.getElementById('import-overlay');
+const importSteps = {
+  input: document.getElementById('import-step-input'),
+  fallback: document.getElementById('import-step-fallback'),
+  preview: document.getElementById('import-step-preview'),
+};
+const importText = document.getElementById('import-text');
+const importPasscode = document.getElementById('import-passcode');
+const importErrors = document.getElementById('import-errors');
+const importStatus = document.getElementById('import-status');
+const importReadBtn = document.getElementById('import-read-btn');
+const importFallbackPrompt = document.getElementById('import-fallback-prompt');
+const importFallbackReply = document.getElementById('import-fallback-reply');
+const importFallbackErrors = document.getElementById('import-fallback-errors');
+const importProblems = document.getElementById('import-problems');
+const importPreview = document.getElementById('import-preview');
+let pendingImport = null; // { year, month, people } awaiting Apply
+
+function importMonth() {
+  const [year, month] = gridMonthInput.value.split('-').map(Number);
+  return { year, month };
+}
+
+function showImportStep(name) {
+  for (const [key, el] of Object.entries(importSteps)) el.hidden = key !== name;
+}
+
+function showErrors(el, messages) {
+  el.hidden = messages.length === 0;
+  el.innerHTML = messages.length === 1 ? escapeHtml(messages[0]) : `<ul>${messages.map((m) => `<li>${escapeHtml(m)}</li>`).join('')}</ul>`;
+}
+
+function rosterForImport() {
+  return activeStaffSorted().map((s) => ({ name: s.name, role: s.role }));
+}
+
+document.getElementById('paste-avail-btn').addEventListener('click', () => {
+  const { year, month } = importMonth();
+  document.getElementById('import-month-label').textContent = new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  try { importPasscode.value = localStorage.getItem(PASSCODE_KEY) ?? ''; } catch { /* storage blocked - just type it */ }
+  showErrors(importErrors, []);
+  importStatus.textContent = '';
+  showImportStep('input');
+  importOverlay.hidden = false;
+  importText.focus();
+});
+
+function closeImport() { importOverlay.hidden = true; pendingImport = null; }
+document.getElementById('import-cancel-btn').addEventListener('click', closeImport);
+importOverlay.addEventListener('click', (e) => { if (e.target === importOverlay) closeImport(); });
+
+importReadBtn.addEventListener('click', async () => {
+  const text = importText.value.trim();
+  const passcode = importPasscode.value.trim();
+  const problems = [];
+  if (!text) problems.push('Paste some availability messages first.');
+  if (text.length > MAX_PASTE_CHARS) problems.push(`That's too long - paste under ${MAX_PASTE_CHARS} characters at a time.`);
+  if (!passcode) problems.push('Enter the passcode, or use the free Claude chat option below.');
+  showErrors(importErrors, problems);
+  if (problems.length) return;
+
+  const { year, month } = importMonth();
+  importReadBtn.disabled = true;
+  const started = Date.now();
+  importStatus.textContent = 'Claude is reading the messages...';
+  const ticker = setInterval(() => { importStatus.textContent = `Claude is reading the messages... ${Math.round((Date.now() - started) / 1000)}s`; }, 1000);
+  try {
+    const res = await fetch('/api/parse-availability', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode, text, staff: rosterForImport(), year, month }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "AI reading isn't available here (it only runs on the deployed site) - use the free Claude chat option below.");
+    try { localStorage.setItem(PASSCODE_KEY, passcode); } catch { /* fine - not essential */ }
+    importStatus.textContent = `Read in ${Math.round((Date.now() - started) / 1000)}s.`;
+    showImportPreview(body.parsed, year, month);
+  } catch (err) {
+    importStatus.textContent = '';
+    const msg = err instanceof TypeError ? "Couldn't reach the AI service (it only runs on the deployed site) - use the free Claude chat option below." : err.message;
+    showErrors(importErrors, [msg]);
+  } finally {
+    clearInterval(ticker);
+    importReadBtn.disabled = false;
+  }
+});
+
+document.getElementById('import-fallback-btn').addEventListener('click', () => {
+  const { year, month } = importMonth();
+  const text = importText.value.trim() || '(paste the staff messages here)';
+  importFallbackPrompt.value = buildChatFallbackPrompt({ staff: rosterForImport(), year, month, text });
+  importFallbackReply.value = '';
+  showErrors(importFallbackErrors, []);
+  showImportStep('fallback');
+});
+
+document.getElementById('import-fallback-copy-btn').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  try {
+    await navigator.clipboard.writeText(importFallbackPrompt.value);
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1500);
+  } catch {
+    importFallbackPrompt.select();
+  }
+});
+
+document.getElementById('import-fallback-back-btn').addEventListener('click', () => showImportStep('input'));
+
+document.getElementById('import-fallback-read-btn').addEventListener('click', () => {
+  try {
+    const { year, month } = importMonth();
+    showImportPreview(extractJson(importFallbackReply.value), year, month);
+  } catch (err) {
+    showErrors(importFallbackErrors, [err.message]);
+  }
+});
+
+const UNMENTIONED_LABELS = {
+  unavailable: 'other days: unavailable',
+  available: 'other days: available',
+  pattern: 'other days: weekly pattern',
+};
+
+function showImportPreview(parsed, year, month) {
+  const staff = activeStaffSorted();
+  const { people, problems, unrecognisedText } = validateParsedAvailability(parsed, staff, year, month);
+  const allProblems = [...problems, ...unrecognisedText.map((t) => `Not understood: "${t}"`)];
+  showErrors(importProblems, allProblems);
+
+  if (people.length === 0) {
+    importPreview.innerHTML = `<p class="empty-state">No availability for anyone on the team was found.</p>`;
+  } else {
+    importPreview.innerHTML = people.map((p) => {
+      const days = p.days.map((d) => {
+        const label = fmtDate(d.date, { includeYear: false, includeWeekday: true });
+        const what = d.status === 'unavailable' ? 'off' : d.slots.length ? d.slots.map((sl) => SLOT_TITLES[sl].toLowerCase()).join('/') : 'any';
+        const note = d.note ? ` <span class="note">(${escapeHtml(d.note)})</span>` : '';
+        return `<span class="import-day ${d.status}">${escapeHtml(label)} &middot; ${what}${note}</span>`;
+      }).join('');
+      const notes = p.notes.length ? `<ul class="import-notes">${p.notes.map((n) => `<li>${escapeHtml(n)} - not enforced automatically, check after generating</li>`).join('')}</ul>` : '';
+      return `<div class="import-person">
+        <h3>${escapeHtml(p.staffName)} <span class="hint">${p.days.filter((d) => d.status === 'available').length} days offered &middot; ${UNMENTIONED_LABELS[p.unmentionedDays]}</span></h3>
+        <div class="import-days">${days || '<span class="hint">No specific dates</span>'}</div>
+        ${notes}
+      </div>`;
+    }).join('');
+  }
+  pendingImport = { year, month, people };
+  document.getElementById('import-apply-btn').disabled = people.length === 0;
+  showImportStep('preview');
+}
+
+document.getElementById('import-preview-back-btn').addEventListener('click', () => showImportStep('input'));
+
+document.getElementById('import-apply-btn').addEventListener('click', () => {
+  if (!pendingImport) return;
+  const { year, month, people } = pendingImport;
+  state.availability = applyAvailabilityImport(state.availability, people, year, month, newId);
+  persist();
+  renderAvailabilityGrid();
+  closeImport();
+  importText.value = '';
 });
 
 // --- Therapist demand (forecast hours) ---

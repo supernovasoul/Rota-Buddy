@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   datesInMonth, previousMonth, patternDaysOfWeek, setWeeklyPattern, effectiveAvailability,
   hasExplicitOverride, setDayOverride, copyOverridesToMonth,
+  receptionSlotsForDay, receptionPatternSlots, setReceptionWeeklyPattern,
 } from './availability.js';
 
 test('datesInMonth: returns every date in a 31-day month', () => {
@@ -141,4 +142,68 @@ test('copyOverridesToMonth: only copies for the given staff members, leaving oth
   ];
   const result = copyOverridesToMonth(availability, [1], july, august, () => 'new-id');
   assert.ok(result.some((a) => a.staffId === 2 && a.dateFrom === august[4] && a.type === 'available'), 'staff 2\'s untouched entry should survive');
+});
+
+// --- Reception's slotted weekly pattern (early/later/full) ---
+
+test('receptionSlotsForDay: weekdays (0-4) get all three slots, weekend days (5-6) get only full', () => {
+  assert.deepEqual(receptionSlotsForDay(0), ['early', 'later', 'full']);
+  assert.deepEqual(receptionSlotsForDay(4), ['early', 'later', 'full']);
+  assert.deepEqual(receptionSlotsForDay(5), ['full']);
+  assert.deepEqual(receptionSlotsForDay(6), ['full']);
+});
+
+test('receptionPatternSlots: someone never configured has hasPattern=false and an empty slot set', () => {
+  const result = receptionPatternSlots([], 1);
+  assert.equal(result.hasPattern, false);
+  assert.deepEqual([...result.slots], []);
+});
+
+test('receptionPatternSlots: ignores day-level (non-slotted) rows and rows for other staff', () => {
+  const patterns = [
+    { staffId: 1, dayOfWeek: 0, available: true }, // day-level row, e.g. a therapist - must be ignored
+    { staffId: 2, dayOfWeek: 0, shiftSlot: 'early', available: true }, // different staff member
+    { staffId: 1, dayOfWeek: 1, shiftSlot: 'later', available: true },
+  ];
+  const result = receptionPatternSlots(patterns, 1);
+  assert.equal(result.hasPattern, true);
+  assert.deepEqual([...result.slots], ['1:later']);
+});
+
+test('patternDaysOfWeek: ignores a receptionist\'s slotted rows entirely', () => {
+  const patterns = [{ staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: true }];
+  const result = patternDaysOfWeek(patterns, 1);
+  assert.equal(result.hasPattern, false);
+  assert.deepEqual([...result.days], []);
+});
+
+test('setReceptionWeeklyPattern: writes 17 rows (5 weekdays x 3 slots + 2 weekend days x 1 slot)', () => {
+  const result = setReceptionWeeklyPattern([], 1, new Set(['0:early']));
+  assert.equal(result.length, 17);
+  assert.equal(result.filter((r) => r.available).length, 1);
+  assert.ok(result.find((r) => r.staffId === 1 && r.dayOfWeek === 0 && r.shiftSlot === 'early' && r.available));
+  assert.ok(result.find((r) => r.staffId === 1 && r.dayOfWeek === 5 && r.shiftSlot === 'full' && !r.available));
+});
+
+test('setReceptionWeeklyPattern: replaces this person\'s entire pattern, leaving other staff untouched', () => {
+  const existing = [
+    { staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: true },
+    { staffId: 2, dayOfWeek: 0, shiftSlot: 'early', available: true },
+  ];
+  const result = setReceptionWeeklyPattern(existing, 1, new Set(['1:later']));
+  assert.ok(result.find((r) => r.staffId === 2 && r.dayOfWeek === 0 && r.shiftSlot === 'early' && r.available), 'staff 2 untouched');
+  assert.ok(!result.find((r) => r.staffId === 1 && r.dayOfWeek === 0 && r.shiftSlot === 'early' && r.available), 'staff 1\'s old Monday-early should be gone');
+  assert.ok(result.find((r) => r.staffId === 1 && r.dayOfWeek === 1 && r.shiftSlot === 'later' && r.available));
+});
+
+test('effectiveAvailability: rolls up a receptionist\'s slotted pattern to "available in any slot that day"', () => {
+  const patterns = setReceptionWeeklyPattern([], 1, new Set(['0:full'])); // only Monday-full ticked
+  assert.equal(effectiveAvailability(1, '2026-08-03', [], patterns), true); // Monday
+  assert.equal(effectiveAvailability(1, '2026-08-04', [], patterns), false); // Tuesday - nothing ticked
+});
+
+test('effectiveAvailability: an explicit day-level override still wins over a receptionist\'s slotted pattern', () => {
+  const patterns = setReceptionWeeklyPattern([], 1, new Set()); // nothing ticked at all
+  const availability = [{ id: 'x', staffId: 1, dateFrom: '2026-08-03', dateTo: '2026-08-03', type: 'available', note: '' }];
+  assert.equal(effectiveAvailability(1, '2026-08-03', availability, patterns), true);
 });

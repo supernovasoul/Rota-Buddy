@@ -135,3 +135,77 @@ test('buildEligibility: overrides for one person never affect a different person
   assert.equal(eligibility.isAvailable(1, '2026-08-05'), false);
   assert.equal(eligibility.isAvailable(2, '2026-08-05'), true);
 });
+
+// --- Reception's slotted pattern (early/later/full) ---
+
+test('buildEligibility: a receptionist with a slotted pattern is only available for the exact slot they ticked', () => {
+  const fixture = baseFixture({
+    availabilityPatterns: [
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: true }, // Monday early only
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'later', available: false },
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'full', available: false },
+    ],
+  });
+  const eligibility = buildEligibility(fixture);
+  assert.equal(eligibility.isAvailable(1, '2026-08-03', { slot: 'early' }), true); // Monday
+  assert.equal(eligibility.isAvailable(1, '2026-08-03', { slot: 'later' }), false);
+  assert.equal(eligibility.isAvailable(1, '2026-08-03', { slot: 'full' }), false);
+});
+
+test('buildEligibility: with no shiftType given, a slotted receptionist rolls up to "available in any slot that day"', () => {
+  const fixture = baseFixture({
+    availabilityPatterns: [
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: false },
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'later', available: true },
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'full', available: false },
+      { staffId: 1, dayOfWeek: 1, shiftSlot: 'early', available: false },
+      { staffId: 1, dayOfWeek: 1, shiftSlot: 'later', available: false },
+      { staffId: 1, dayOfWeek: 1, shiftSlot: 'full', available: false },
+    ],
+  });
+  const eligibility = buildEligibility(fixture);
+  assert.equal(eligibility.isAvailable(1, '2026-08-03'), true); // Monday - later is ticked
+  assert.equal(eligibility.isAvailable(1, '2026-08-04'), false); // Tuesday - nothing ticked
+});
+
+test('buildEligibility: a day-level override still wins over a receptionist\'s slotted pattern, for any slot', () => {
+  const fixture = baseFixture({
+    availabilityPatterns: [{ staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: false }],
+    availability: [{ staffId: 1, dateFrom: '2026-08-03', dateTo: '2026-08-03', type: 'available' }],
+  });
+  const eligibility = buildEligibility(fixture);
+  assert.equal(eligibility.isAvailable(1, '2026-08-03', { slot: 'early' }), true, 'the override beats the unticked slot');
+});
+
+test('buildEligibility: a therapist\'s day-level pattern is unaffected by a shiftType with no .slot', () => {
+  const fixture = baseFixture({
+    availabilityPatterns: [{ staffId: 1, dayOfWeek: 5, available: true }], // weekends-only therapist
+  });
+  const eligibility = buildEligibility(fixture);
+  assert.equal(eligibility.isAvailable(1, '2026-08-05', { start: '11:00', end: '18:00' }), false); // Wednesday, no .slot on the shiftType
+  assert.equal(eligibility.isAvailable(1, '2026-08-08', { start: '11:00', end: '18:00' }), true); // Saturday
+});
+
+test('isEligible: threads the shiftType through to the slot-aware availability check', () => {
+  const fixture = baseFixture({
+    availabilityPatterns: [
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'early', available: false },
+      { staffId: 1, dayOfWeek: 0, shiftSlot: 'later', available: true },
+    ],
+  });
+  const eligibility = buildEligibility(fixture);
+  assert.equal(eligibility.isEligible(1, '2026-08-03', { slot: 'early' }), false);
+  assert.equal(eligibility.isEligible(1, '2026-08-03'), true, 'without a shiftType it rolls up, and later is ticked');
+});
+
+test('buildEligibility: a one-off override with shiftSlots only allows those slots that day', () => {
+  const eligibility = buildEligibility({
+    staff: [{ id: 1, startDate: '2020-01-01' }],
+    availability: [{ id: 'a', staffId: 1, dateFrom: '2026-08-07', dateTo: '2026-08-07', type: 'available', shiftSlots: ['early'] }],
+  });
+  assert.equal(eligibility.isAvailable(1, '2026-08-07', { slot: 'early' }), true);
+  assert.equal(eligibility.isAvailable(1, '2026-08-07', { slot: 'later' }), false);
+  assert.equal(eligibility.isAvailable(1, '2026-08-07', { slot: 'full' }), false);
+  assert.equal(eligibility.isAvailable(1, '2026-08-07'), true, 'no shiftType - day-level rollup is still "available"');
+  assert.equal(eligibility.isAvailable(1, '2026-08-07', { name: 'Therapist 11-6' }), true, 'shift type with no slot is unaffected');
+});
